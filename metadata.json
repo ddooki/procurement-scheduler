@@ -1,0 +1,6 @@
+{
+  "name": "외주구매팀 업무관리표",
+  "description": "외주구매팀을 위한 오프라인 지원 업무 및 일정 관리 대시보드",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

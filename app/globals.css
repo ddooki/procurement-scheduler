@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-headline: var(--font-headline);
+  --font-body: var(--font-body);
+  
+  --color-primary: var(--primary);
+  --color-primary-dim: var(--primary-dim);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary: var(--on-primary);
+  --color-on-primary-container: var(--on-primary-container);
+  
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  
+  --color-surface: var(--surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  
+  --color-border: var(--border);
+  
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+}
+
+:root {
+  --primary: #4a7c59;
+  --primary-dim: #8ecf9e;
+  --primary-container: #c8e8d0;
+  --on-primary: #ffffff;
+  --on-primary-container: #002110;
+  
+  --background: #faf6f0;
+  --on-background: #2e3230;
+  
+  --surface: #ffffff;
+  --surface-variant: #f0ece4;
+  --on-surface: #2e3230;
+  --on-surface-variant: #4a4e4a;
+  
+  --border: #c4c8bc;
+  
+  --tertiary: #705c30;
+  --tertiary-container: #f8e0a8;
+  --on-tertiary-container: #221a05;
+  
+  --error: #b83230;
+  --error-container: #ffdad8;
+  --on-error-container: #690005;
+}
+
+.dark {
+  --primary: #8ecf9e;
+  --primary-dim: #4a7c59;
+  --primary-container: #2a6038;
+  --on-primary: #00391c;
+  --on-primary-container: #d8f0de;
+  
+  --background: #242624;
+  --on-background: #e4e0d8;
+  
+  --surface: #2a2c2a;
+  --surface-variant: #363836;
+  --on-surface: #e4e0d8;
+  --on-surface-variant: #c4c8bc;
+  
+  --border: #4a4e4a;
+  
+  --tertiary: #dcc48e;
+  --tertiary-container: #554020;
+  --on-tertiary-container: #f8e0a8;
+  
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --on-error-container: #ffdad8;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--on-background);
+}
