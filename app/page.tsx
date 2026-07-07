@@ -1064,9 +1064,9 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-surface w-full max-w-lg rounded-2xl shadow-xl overflow-hidden"
+              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col"
             >
-              <div className="flex justify-between items-center p-6 border-b border-border">
+              <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold">
                   {editingTask ? "일정 수정" : "새 일정 등록"}
                 </h2>
@@ -1390,7 +1390,7 @@ function TaskForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[75vh] hide-scrollbar">
+    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[85vh] hide-scrollbar">
       <div>
         <label className="block text-sm font-bold mb-1.5">일정 제목</label>
         <input
