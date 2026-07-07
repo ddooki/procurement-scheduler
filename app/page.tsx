@@ -49,6 +49,7 @@ import {
   addDays,
   addWeeks,
   addYears,
+  isWithinInterval,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
@@ -74,6 +75,9 @@ interface Task {
   // Chain / Dependency
   nextTaskId?: string;
   prevTaskId?: string;
+  // Span Date Support
+  startDate?: string;
+  endDate?: string;
 }
 
 const STORAGE_KEY = "outsourcing_team_schedule_data";
@@ -1354,9 +1358,14 @@ function TaskForm({
   const [title, setTitle] = useState(initialData?.title || "");
   const [type, setType] = useState<TaskType>(initialData?.type || "GENERAL");
 
-  const initDeadline = initialData?.deadline ? parseISO(initialData.deadline) : new Date();
-  const [date, setDate] = useState(format(initDeadline, "yyyy-MM-dd"));
-  const [time, setTime] = useState(format(initDeadline, "HH:mm"));
+  const initStart = initialData?.startDate ? parseISO(initialData.startDate) : (initialData?.deadline ? parseISO(initialData.deadline) : new Date());
+  const initEnd = initialData?.endDate ? parseISO(initialData.endDate) : (initialData?.deadline ? parseISO(initialData.deadline) : new Date());
+  
+  const [startDateStr, setStartDateStr] = useState(format(initStart, "yyyy-MM-dd"));
+  const [startTimeStr, setStartTimeStr] = useState(format(initStart, "HH:mm"));
+  const [endDateStr, setEndDateStr] = useState(format(initEnd, "yyyy-MM-dd"));
+  const [endTimeStr, setEndTimeStr] = useState(format(initEnd, "HH:mm"));
+  
   const [desc, setDesc] = useState(initialData?.description || "");
   const [color, setColor] = useState(initialData?.color || TASK_COLORS[4]);
   
@@ -1373,12 +1382,15 @@ function TaskForm({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const deadline = new Date(`${date}T${time}`).toISOString();
+    const startISO = new Date(`${startDateStr}T${startTimeStr}`).toISOString();
+    const endISO = new Date(`${endDateStr}T${endTimeStr}`).toISOString();
 
     onSubmit({
       title,
       type,
-      deadline,
+      deadline: endISO, // compatibility fallback
+      startDate: startISO,
+      endDate: endISO,
       status: initialData?.status || "TODO",
       description: desc,
       color,
@@ -1390,26 +1402,28 @@ function TaskForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 overflow-y-auto max-h-[85vh] hide-scrollbar">
-      <div>
-        <label className="block text-sm font-bold mb-1.5">일정 제목</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="프로젝트 A 입찰 서류 제출..."
-          className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-          required
-        />
+    <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5 overflow-y-auto max-h-[85vh] hide-scrollbar text-sm">
+      <div className="flex gap-4 items-center">
+        <div className="flex-1">
+          <label className="block text-xs font-bold mb-1">일정 제목</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="프로젝트 A 입찰 서류 제출..."
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            required
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-bold mb-1.5">유형</label>
+          <label className="block text-xs font-bold mb-1">유형</label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as TaskType)}
-            className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
           >
             <option value="MEETING">미팅 (Meeting)</option>
             <option value="BID">입찰 (Bid)</option>
@@ -1419,11 +1433,11 @@ function TaskForm({
         </div>
 
         <div>
-          <label className="block text-sm font-bold mb-1.5">반복 주기설정</label>
+          <label className="block text-xs font-bold mb-1">반복 주기설정</label>
           <select
             value={recurrence}
             onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-            className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
           >
             <option value="NONE">반복 없음</option>
             <option value="WEEKLY">매주 반복</option>
@@ -1433,40 +1447,80 @@ function TaskForm({
             <option value="ANNUALLY">매년 반복 (정기 업무)</option>
           </select>
         </div>
+
+        <div>
+          <label className="block text-xs font-bold mb-1">색상 지정</label>
+          <div className="flex gap-1 py-1 overflow-x-auto">
+            {TASK_COLORS.slice(0, 7).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
+                  color === c ? "scale-110 ring-2 ring-on-surface" : "hover:scale-105 opacity-80"
+                }`}
+                style={{ backgroundColor: c }}
+              >
+                {color === c && <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-bold mb-1.5">마감/시작 시간</label>
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-            required
-          />
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
-            required
-          />
+      <div className="grid grid-cols-2 gap-3 p-3 bg-surface-variant/30 border border-border/60 rounded-xl">
+        <div>
+          <label className="block text-xs font-bold mb-1 text-primary">시작 날짜 / 시간</label>
+          <div className="flex gap-1.5">
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
+              required
+            />
+            <input
+              type="time"
+              value={startTimeStr}
+              onChange={(e) => setStartTimeStr(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold mb-1 text-error">종료 날짜 / 시간</label>
+          <div className="flex gap-1.5">
+            <input
+              type="date"
+              value={endDateStr}
+              onChange={(e) => setEndDateStr(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
+              required
+            />
+            <input
+              type="time"
+              value={endTimeStr}
+              onChange={(e) => setEndTimeStr(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
+              required
+            />
+          </div>
         </div>
       </div>
 
       {/* Dependency Link UI */}
-      <div className="p-4 bg-surface-variant/30 border border-border rounded-xl flex flex-col gap-3">
+      <div className="p-3 bg-surface-variant/30 border border-border/60 rounded-xl flex flex-col gap-2">
         <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
           <GitMerge className="w-3.5 h-3.5 text-primary" /> 업무 연쇄 체인 연동 설정 (순차 업무)
         </span>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant mb-1">선행 업무 (이전 단계)</label>
+            <label className="block text-[10px] font-bold text-on-surface-variant mb-0.5">선행 업무 (이전 단계)</label>
             <select
               value={prevTaskId}
               onChange={(e) => setPrevTaskId(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface focus:outline-none"
+              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none"
             >
               <option value="">없음 (시작 업무)</option>
               {tasks
@@ -1477,11 +1531,11 @@ function TaskForm({
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-on-surface-variant mb-1">후속 업무 (다음 단계)</label>
+            <label className="block text-[10px] font-bold text-on-surface-variant mb-0.5">후속 업무 (다음 단계)</label>
             <select
               value={nextTaskId}
               onChange={(e) => setNextTaskId(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface focus:outline-none"
+              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none"
             >
               <option value="">없음 (종료 업무)</option>
               {tasks
@@ -1495,39 +1549,20 @@ function TaskForm({
       </div>
 
       <div>
-        <label className="block text-sm font-bold mb-1.5">색상 지정</label>
-        <div className="flex flex-wrap gap-2">
-          {TASK_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${
-                color === c ? "scale-110 ring-2 ring-offset-2 ring-on-surface ring-offset-surface" : "hover:scale-105 opacity-80"
-              }`}
-              style={{ backgroundColor: c }}
-            >
-              {color === c && <Check className="w-4 h-4 text-white drop-shadow-md" />}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold mb-1.5">상세 내용 (선택)</label>
+        <label className="block text-xs font-bold mb-1">상세 내용 (선택)</label>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           placeholder="관련 자료 링크나 참고 사항을 적어주세요."
-          className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[80px] resize-none"
+          className="w-full px-3 py-1.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs min-h-[50px] resize-none"
         />
       </div>
 
-      <div className="flex gap-3 mt-4 pt-4 border-t border-border">
+      <div className="flex gap-3 mt-2 pt-3 border-t border-border flex-shrink-0">
         {onDelete &&
           (showDeleteConfirm ? (
             <div className="flex items-center gap-3 mr-auto bg-error-container/30 px-3 py-1.5 rounded-xl border border-error/50">
-              <span className="text-xs font-bold text-error">삭제하시겠습니까?</span>
+              <span className="text-xs font-bold text-error">삭제?</span>
               <button type="button" onClick={onDelete} className="text-error hover:underline text-sm font-bold px-1">네</button>
               <span className="text-error/30">|</span>
               <button type="button" onClick={() => setShowDeleteConfirm(false)} className="text-on-surface-variant hover:underline text-sm px-1">아니오</button>
@@ -1536,15 +1571,15 @@ function TaskForm({
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="py-3 px-4 rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors mr-auto"
+              className="py-2.5 px-3.5 rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors mr-auto"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4.5 h-4.5" />
             </button>
           ))}
-        <button type="button" onClick={onCancel} className="flex-1 py-3 px-4 rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors">
+        <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
           취소
         </button>
-        <button type="submit" className="flex-1 py-3 px-4 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm">
+        <button type="submit" className="flex-1 py-2 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
           {initialData ? "저장하기" : "등록하기"}
         </button>
       </div>
@@ -1706,7 +1741,15 @@ function FullCalendar({
           const dayOfWeek = getDay(day);
           const isSun = dayOfWeek === 0;
           const isSat = dayOfWeek === 6;
-          const dayTasks = tasks.filter((t) => isSameDay(parseISO(t.deadline), day));
+          const dayTasks = tasks.filter((t) => {
+            if (t.startDate && t.endDate) {
+              const start = startOfDay(parseISO(t.startDate));
+              const end = startOfDay(parseISO(t.endDate));
+              const target = startOfDay(day);
+              return isWithinInterval(target, { start, end });
+            }
+            return isSameDay(parseISO(t.deadline), day);
+          });
 
           return (
             <div
