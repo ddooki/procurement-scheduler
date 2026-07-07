@@ -30,6 +30,7 @@ import {
   ArrowRight,
   CalendarDays,
   CheckSquare,
+  History,
 } from "lucide-react";
 import {
   format,
@@ -477,7 +478,7 @@ export default function App() {
             onClick={() => setActiveTab("workflows")}
           />
           <NavItem
-            icon={<CalendarDays className="w-5 h-5 text-primary" />}
+            icon={<History className="w-5 h-5 text-primary" />}
             label="주기별 업무 관리"
             isActive={activeTab === "periodic"}
             onClick={() => setActiveTab("periodic")}
@@ -906,7 +907,7 @@ export default function App() {
                       {/* Annually Section */}
                       <div>
                         <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-primary">
-                          <CalendarDays className="w-5 h-5" /> 연간 (Annually) 주요 정기 업무
+                          <History className="w-5 h-5" /> 연간 정기 업무
                         </h3>
                         <PeriodicTable tasks={tasks.filter(t => t.recurrence === "ANNUALLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
@@ -914,7 +915,7 @@ export default function App() {
                       {/* Semi-Annually Section */}
                       <div className="pt-4">
                         <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-tertiary">
-                          <CheckSquare className="w-5 h-5" /> 반기 (Semi-Annually) 정기 업무
+                          <History className="w-5 h-5" /> 반기 정기 업무
                         </h3>
                         <PeriodicTable tasks={tasks.filter(t => t.recurrence === "SEMI_ANNUALLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
@@ -922,7 +923,7 @@ export default function App() {
                       {/* Quarterly Section */}
                       <div className="pt-4">
                         <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-error">
-                          <Layers className="w-5 h-5" /> 분기 (Quarterly) 정기 업무
+                          <History className="w-5 h-5" /> 분기 정기 업무
                         </h3>
                         <PeriodicTable tasks={tasks.filter(t => t.recurrence === "QUARTERLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
