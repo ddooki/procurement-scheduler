@@ -52,16 +52,7 @@ import {
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
-import { db, isFirebaseConfigured } from "../lib/firebase";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  writeBatch,
-} from "firebase/firestore";
+import { fetchTasksFromServer, saveTasksToServer, isKVConfigured } from "../lib/kv";
 
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
@@ -97,33 +88,30 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dbStatus, setDbStatus] = useState<"LOCAL" | "FIREBASE">("LOCAL");
+  const [dbStatus, setDbStatus] = useState<"LOCAL" | "VERCEL_KV">("LOCAL");
 
-  // Load from Firebase or Fallback to localStorage
+  // Load Tasks
   useEffect(() => {
     const initialize = async () => {
       let loadedTasks: Task[] = [];
       let themeMode = "light";
 
-      if (isFirebaseConfigured && db) {
+      // Vercel KV connection check (runs on Vercel deployment)
+      if (typeof window !== "undefined") {
         try {
-          const querySnapshot = await getDocs(collection(db, "tasks"));
-          querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            loadedTasks.push({
-              id: docSnap.id,
-              ...data,
-            } as Task);
-          });
-          setDbStatus("FIREBASE");
+          const serverTasks = await fetchTasksFromServer();
+          if (serverTasks && serverTasks.length > 0) {
+            loadedTasks = serverTasks;
+            setDbStatus("VERCEL_KV");
+          } else {
+            loadFromLocal();
+          }
         } catch (e) {
-          console.error("Firebase fetch error, falling back to local storage:", e);
+          console.error("Vercel KV fetch error, falling back to local storage:", e);
           loadFromLocal();
-          return;
         }
       } else {
         loadFromLocal();
-        return;
       }
 
       function loadFromLocal() {
@@ -175,9 +163,15 @@ export default function App() {
     setTasks(newTasks);
     setLastSaved(new Date());
 
-    if (dbStatus === "FIREBASE" && db) {
-      // Basic synchronization/handling could be done task by task, 
-      // but we maintain localStorage as a fallback.
+    // Sync to Vercel KV if available
+    try {
+      await saveTasksToServer(newTasks);
+      // If server save works, mark status as VERCEL_KV
+      if (process.env.NODE_ENV === "production" || dbStatus === "VERCEL_KV") {
+        setDbStatus("VERCEL_KV");
+      }
+    } catch (e) {
+      console.error("Failed to sync with Vercel KV:", e);
     }
     
     // Always keep localStorage updated as well
@@ -276,18 +270,9 @@ export default function App() {
       }
 
       updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
-
-      if (dbStatus === "FIREBASE" && db) {
-        try {
-          const { id, ...firebaseData } = updatedTask;
-          await updateDoc(doc(db, "tasks", editingTask.id), firebaseData);
-        } catch (e) {
-          console.error("Firebase update failed:", e);
-        }
-      }
     } else {
       // Create new
-      const newId = dbStatus === "FIREBASE" ? doc(collection(db, "tasks")).id : crypto.randomUUID();
+      const newId = crypto.randomUUID();
       const newTask: Task = {
         ...taskData,
         id: newId,
@@ -310,7 +295,7 @@ export default function App() {
           else if (newTask.recurrence === "SEMI_ANNUALLY") nextDate = addMonths(lastDate, i * 6);
           else nextDate = addYears(lastDate, i); // ANNUALLY
 
-          const recId = dbStatus === "FIREBASE" ? doc(collection(db, "tasks")).id : crypto.randomUUID();
+          const recId = crypto.randomUUID();
           recurrentTasks.push({
             ...newTask,
             id: recId,
@@ -324,27 +309,6 @@ export default function App() {
       }
 
       updatedTasks = [...updatedTasks, newTask, ...recurrentTasks];
-
-      if (dbStatus === "FIREBASE" && db) {
-        try {
-          const { id, ...firebaseData } = newTask;
-          await updateDoc(doc(db, "tasks", newId), firebaseData); // Firebase creates it
-          for (const rt of recurrentTasks) {
-            const { id: rId, ...rtData } = rt;
-            await updateDoc(doc(db, "tasks", rId), rtData);
-          }
-        } catch (e) {
-          // If update doc fails because it doesn't exist, we use addDoc or similar
-          try {
-            await addDoc(collection(db, "tasks"), newTask);
-            for (const rt of recurrentTasks) {
-              await addDoc(collection(db, "tasks"), rt);
-            }
-          } catch (err) {
-            console.error("Firebase add failed:", err);
-          }
-        }
-      }
     }
 
     await saveTasksState(updatedTasks);
@@ -384,30 +348,11 @@ export default function App() {
       });
     }
 
-    if (dbStatus === "FIREBASE" && db) {
-      try {
-        const target = updatedTasks.find(t => t.id === id);
-        if (target) {
-          const { id: _, ...firebaseData } = target;
-          await updateDoc(doc(db, "tasks", id), firebaseData);
-        }
-      } catch (e) {
-        console.error("Firebase status update failed:", e);
-      }
-    }
-
     await saveTasksState(updatedTasks);
   };
 
   const handleDeleteTask = async (id: string) => {
     const updatedTasks = tasks.filter((t) => t.id !== id);
-    if (dbStatus === "FIREBASE" && db) {
-      try {
-        await deleteDoc(doc(db, "tasks", id));
-      } catch (e) {
-        console.error("Firebase delete failed:", e);
-      }
-    }
     await saveTasksState(updatedTasks);
     setIsTaskModalOpen(false);
   };
@@ -430,7 +375,7 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center text-primary font-bold">
-        로딩 중... ({dbStatus === "FIREBASE" ? "서버 동기화" : "로컬 모드"})
+        로딩 중... ({dbStatus === "VERCEL_KV" ? "서버 동기화" : "로컬 모드"})
       </div>
     );
   }
@@ -497,8 +442,8 @@ export default function App() {
         <div className="p-4 border-t border-border/50 flex flex-col gap-4">
           <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-              <CheckCircle className={`w-3.5 h-3.5 ${dbStatus === "FIREBASE" ? "text-primary" : "text-amber-500"}`} />
-              <span>{dbStatus === "FIREBASE" ? "서버 동기화됨" : "로컬 오프라인"}</span>
+              <CheckCircle className={`w-3.5 h-3.5 ${dbStatus === "VERCEL_KV" ? "text-primary" : "text-amber-500"}`} />
+              <span>{dbStatus === "VERCEL_KV" ? "Vercel KV 동기화됨" : "로컬 브라우저 저장"}</span>
             </div>
             <button
               onClick={toggleTheme}
@@ -951,13 +896,13 @@ export default function App() {
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
                       <h3 className="font-headline text-xl font-bold mb-2">서버 연결 상태</h3>
                       <p className="text-sm text-on-surface-variant mb-4">
-                        {dbStatus === "FIREBASE"
-                          ? "Firebase 실시간 데이터베이스 연동 활성화 상태입니다. Vercel 및 모바일에서도 자동으로 동기화됩니다."
-                          : "로컬 오프라인 데이터베이스로 작동 중입니다. Firebase 설정 환경 변수가 추가되면 자동으로 클라우드 동기화 모드로 전환됩니다."}
+                        {dbStatus === "VERCEL_KV"
+                          ? "Vercel KV 클라우드 데이터베이스에 정상 연동되었습니다. Vercel 배포 주소 및 다른 기기에서도 데이터가 완벽히 실시간 연동됩니다."
+                          : "로컬 오프라인 모드입니다. Vercel 프로젝트 대시보드에서 Storage -> KV (Redis) 데이터베이스를 클릭 몇 번으로 연동해 주기만 하면, 환경 변수가 자동으로 주입되어 클라우드 연동 모드로 전환됩니다."}
                       </p>
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-variant text-sm font-bold border border-border">
-                        <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "FIREBASE" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
-                        <span>{dbStatus === "FIREBASE" ? "Firebase 연동 완료" : "로컬 브라우저 저장 모드"}</span>
+                        <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "VERCEL_KV" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
+                        <span>{dbStatus === "VERCEL_KV" ? "Vercel KV 연동 완료" : "로컬 브라우저 저장 모드"}</span>
                       </div>
                     </div>
 
@@ -1644,7 +1589,6 @@ function FullCalendar({
   );
 }
 
-// Periodic Table UI Helper Component
 function PeriodicTable({
   tasks,
   onEdit,
