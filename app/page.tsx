@@ -1338,9 +1338,13 @@ const TASK_COLORS = [
   "#10b981",
   "#06b6d4",
   "#3b82f6",
+  "#6366f1",
   "#8b5cf6",
   "#d946ef",
+  "#ec4899",
   "#f43f5e",
+  "#14b8a6",
+  "#64748b",
 ];
 
 function TaskForm({
@@ -1451,8 +1455,8 @@ function TaskForm({
 
         <div>
           <label className="block text-xs font-bold mb-1">색상 지정</label>
-          <div className="flex gap-1 py-1 overflow-x-auto">
-            {TASK_COLORS.slice(0, 7).map((c) => (
+          <div className="grid grid-cols-7 gap-1 py-1">
+            {TASK_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -1750,6 +1754,24 @@ function FullCalendar({
               return isWithinInterval(target, { start, end });
             }
             return isSameDay(parseISO(t.deadline), day);
+          });
+
+          // Sort tasks: multi-day tasks first (by duration descending), then by title
+          dayTasks.sort((a, b) => {
+            const getDuration = (t: Task) => {
+              if (t.startDate && t.endDate) {
+                const start = startOfDay(parseISO(t.startDate));
+                const end = startOfDay(parseISO(t.endDate));
+                return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+              }
+              return 1;
+            };
+            const durA = getDuration(a);
+            const durB = getDuration(b);
+            if (durA !== durB) {
+              return durB - durA;
+            }
+            return a.title.localeCompare(b.title);
           });
 
           return (
