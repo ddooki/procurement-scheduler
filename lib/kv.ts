@@ -1,22 +1,23 @@
-import { kv } from "@vercel/kv";
 
-// Check if Vercel KV env variables are configured
+// Check if Vercel KV environment variables are actually configured in the environment (on server-side)
 export const isKVConfigured = !!(
   process.env.KV_URL &&
   process.env.KV_REST_API_URL &&
   process.env.KV_REST_API_TOKEN
 );
 
-// We will export a client-side friendly interface that calls Next.js API Routes 
-// to avoid exposing the KV read/write tokens directly on the browser/client-side.
-// Next.js API Routes are secure server-side environments.
+export async function checkServerKVStatus(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/tasks/status");
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.configured;
+  } catch {
+    return false;
+  }
+}
 
 export async function fetchTasksFromServer(): Promise<any[]> {
-  if (!isKVConfigured && process.env.NODE_ENV === "production") {
-    console.warn("Vercel KV is not configured. Running in offline/fallback mode.");
-    return [];
-  }
-  
   try {
     const res = await fetch("/api/tasks");
     if (!res.ok) throw new Error("Failed to fetch tasks");

@@ -52,7 +52,7 @@ import {
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
-import { fetchTasksFromServer, saveTasksToServer, isKVConfigured } from "../lib/kv";
+import { fetchTasksFromServer, saveTasksToServer, isKVConfigured, checkServerKVStatus } from "../lib/kv";
 
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
@@ -99,10 +99,23 @@ export default function App() {
       // Vercel KV connection check (runs on Vercel deployment)
       if (typeof window !== "undefined") {
         try {
-          const serverTasks = await fetchTasksFromServer();
-          if (serverTasks && serverTasks.length > 0) {
-            loadedTasks = serverTasks;
+          const isConfigured = await checkServerKVStatus();
+          if (isConfigured) {
             setDbStatus("VERCEL_KV");
+            const serverTasks = await fetchTasksFromServer();
+            if (serverTasks && serverTasks.length > 0) {
+              loadedTasks = serverTasks;
+            } else {
+              // If KV is configured but empty, populate with local storage if available
+              const saved = localStorage.getItem(STORAGE_KEY);
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.tasks && parsed.tasks.length > 0) {
+                  loadedTasks = parsed.tasks;
+                  await saveTasksToServer(loadedTasks);
+                }
+              }
+            }
           } else {
             loadFromLocal();
           }
