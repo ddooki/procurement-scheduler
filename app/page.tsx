@@ -90,6 +90,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "VERCEL_KV">("LOCAL");
 
+  // Deletion Modal States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState<"ASK" | "PASSWORD">("ASK");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+
   // Load Tasks
   useEffect(() => {
     const initialize = async () => {
@@ -179,7 +185,6 @@ export default function App() {
     // Sync to Vercel KV if available
     try {
       await saveTasksToServer(newTasks);
-      // If server save works, mark status as VERCEL_KV
       if (process.env.NODE_ENV === "production" || dbStatus === "VERCEL_KV") {
         setDbStatus("VERCEL_KV");
       }
@@ -230,6 +235,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Merge Backup instead of Overwriting
   const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -239,7 +245,22 @@ export default function App() {
         const content = event.target?.result as string;
         const parsed = JSON.parse(content);
         if (parsed.tasks) {
-          await saveTasksState(parsed.tasks);
+          // Merge logic: Add tasks that do not already exist in the state by checking task ID
+          const mergedTasks = [...tasks];
+          let addedCount = 0;
+          parsed.tasks.forEach((importTask: Task) => {
+            const index = mergedTasks.findIndex(t => t.id === importTask.id);
+            if (index !== -1) {
+              // Update existing tasks with same ID
+              mergedTasks[index] = importTask;
+            } else {
+              // Add new tasks
+              mergedTasks.push(importTask);
+              addedCount++;
+            }
+          });
+
+          await saveTasksState(mergedTasks);
           if (parsed.theme === "dark") {
             setIsDarkMode(true);
             document.documentElement.classList.add("dark");
@@ -247,7 +268,7 @@ export default function App() {
             setIsDarkMode(false);
             document.documentElement.classList.remove("dark");
           }
-          alert("데이터를 성공적으로 불러왔습니다.");
+          alert(`데이터를 성공적으로 합쳤습니다. (새로운 일정 ${addedCount}개 추가됨)`);
         }
       } catch (error) {
         alert("잘못된 파일 형식입니다.");
@@ -370,6 +391,19 @@ export default function App() {
     setIsTaskModalOpen(false);
   };
 
+  // Safe purge Vercel KV with password protection
+  const handlePurgeAllData = async () => {
+    if (deletePassword === "123") {
+      await saveTasksState([]);
+      setIsDeleteModalOpen(false);
+      setDeletePassword("");
+      setDeleteError("");
+      alert("모든 데이터가 성공적으로 초기화되었습니다.");
+    } else {
+      setDeleteError("비밀번호가 올바르지 않습니다. 다시 입력해 주세요.");
+    }
+  };
+
   // Derived states
   const todayTasks = tasks.filter(
     (t) => t.status !== "DONE" && isToday(parseISO(t.deadline)),
@@ -434,19 +468,19 @@ export default function App() {
           />
           <NavItem
             icon={<GitMerge className="w-5 h-5 text-tertiary" />}
-            label="주요 업무 스케줄"
+            label="순차 연쇄 업무"
             isActive={activeTab === "workflows"}
             onClick={() => setActiveTab("workflows")}
           />
           <NavItem
-            icon={<Layers className="w-5 h-5 text-primary" />}
+            icon={<CalendarDays className="w-5 h-5 text-primary" />}
             label="주기별 업무 관리"
             isActive={activeTab === "periodic"}
             onClick={() => setActiveTab("periodic")}
           />
           <NavItem
             icon={<SettingsIcon className="w-5 h-5" />}
-            label="백업 및 설정"
+            label="설정 및 백업"
             isActive={activeTab === "settings"}
             onClick={() => setActiveTab("settings")}
           />
@@ -736,7 +770,7 @@ export default function App() {
                   className="h-full flex flex-col pb-6"
                 >
                   <div className="mb-6 flex-shrink-0">
-                    <h2 className="font-headline text-3xl font-bold mb-1">주요 업무 스케줄 (연동 업무)</h2>
+                    <h2 className="font-headline text-3xl font-bold mb-1">순차 연쇄 업무</h2>
                     <p className="text-on-surface-variant">
                       선후 관계가 연결되어 순서대로 처리해야 하는 주요 업무 프로세스를 관리합니다.
                     </p>
@@ -844,7 +878,7 @@ export default function App() {
                   className="h-full flex flex-col pb-6"
                 >
                   <div className="mb-6 flex-shrink-0">
-                    <h2 className="font-headline text-3xl font-bold mb-1">주기별 업무 관리표</h2>
+                    <h2 className="font-headline text-3xl font-bold mb-1">주기별 업무 관리</h2>
                     <p className="text-on-surface-variant">연간, 반기, 분기 단위로 반복해서 챙겨야 하는 정기 점검 및 구매업무 관리판입니다.</p>
                   </div>
 
@@ -947,8 +981,8 @@ export default function App() {
                           <Upload className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="font-headline text-xl font-bold">백업 파일 불러오기</h3>
-                          <p className="text-sm text-on-surface-variant">이전에 저장한 .txt 백업 파일을 불러옵니다.</p>
+                          <h3 className="font-headline text-xl font-bold">백업 파일 불러오기 (데이터 합치기)</h3>
+                          <p className="text-sm text-on-surface-variant">이전에 저장한 백업 파일을 불러와 현재 기존 일정에 더합니다.</p>
                         </div>
                       </div>
 
@@ -964,9 +998,34 @@ export default function App() {
                           백업 파일 선택
                         </button>
                       </div>
-                      <p className="text-xs text-error mt-3">
-                        * 주의: 파일을 불러오면 현재 연동 데이터가 모두 덮어쓰기 됩니다.
+                      <p className="text-xs text-on-surface-variant mt-3 font-semibold text-primary">
+                        * 알림: 기존 저장되어 있는 데이터는 삭제되지 않으며 병합됩니다.
                       </p>
+                    </div>
+
+                    {/* Purge / Clear Database section */}
+                    <div className="bg-surface rounded-2xl p-6 md:p-8 border border-error/30 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-error-container text-error rounded-xl flex items-center justify-center">
+                          <Trash2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-headline text-xl font-bold text-error">Vercel KV 전체 데이터 초기화</h3>
+                          <p className="text-sm text-on-surface-variant">클라우드 서버 및 로컬 브라우저의 모든 데이터(일정)를 완전히 영구적으로 삭제합니다.</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setDeleteConfirmStep("ASK");
+                          setDeletePassword("");
+                          setDeleteError("");
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="mt-4 px-6 py-3 bg-error text-on-error font-bold rounded-xl hover:opacity-90 transition-opacity w-full md:w-auto"
+                      >
+                        데이터베이스 완전 초기화
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -1025,6 +1084,88 @@ export default function App() {
                 onCancel={() => setIsTaskModalOpen(false)}
                 onDelete={editingTask ? () => handleDeleteTask(editingTask.id) : undefined}
               />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Purge Confirm Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setIsDeleteModalOpen(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-surface w-full max-w-md rounded-2xl shadow-2xl p-6 border border-border"
+            >
+              <div className="flex items-center gap-3 text-error mb-4">
+                <AlertTriangle className="w-8 h-8" />
+                <h3 className="text-xl font-headline font-bold">데이터베이스 전체 삭제 경고</h3>
+              </div>
+
+              {deleteConfirmStep === "ASK" ? (
+                <div>
+                  <p className="text-sm text-on-surface mb-6 leading-relaxed">
+                    정말로 모든 일정 데이터를 삭제하시겠습니까?<br />
+                    이 작업은 되돌릴 수 없으며, Vercel KV 및 로컬 스토리지에 있는 모든 기록이 완전 소멸됩니다.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-on-surface font-bold hover:bg-surface-variant transition-colors"
+                    >
+                      아니오
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmStep("PASSWORD")}
+                      className="flex-1 py-2.5 rounded-xl bg-error text-on-error font-bold hover:opacity-90 transition-opacity"
+                    >
+                      예, 삭제하겠습니다
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-on-surface mb-3 font-semibold">
+                    완전 초기화를 위해 비밀번호를 입력해 주세요:
+                  </p>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="비밀번호 입력..."
+                    className="w-full px-4 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-error/50 mb-3"
+                    autoFocus
+                  />
+                  {deleteError && <p className="text-xs text-error font-bold mb-3">{deleteError}</p>}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setIsDeleteModalOpen(false);
+                        setDeletePassword("");
+                        setDeleteError("");
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-on-surface font-bold hover:bg-surface-variant transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={handlePurgeAllData}
+                      className="flex-1 py-2.5 rounded-xl bg-error text-on-error font-bold hover:opacity-90 transition-opacity"
+                    >
+                      완전 삭제 확인
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
