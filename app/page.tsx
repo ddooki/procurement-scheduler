@@ -1336,6 +1336,7 @@ const TASK_COLORS = [
   "#f59e0b",
   "#84cc16",
   "#10b981",
+  "#14b8a6",
   "#06b6d4",
   "#3b82f6",
   "#6366f1",
@@ -1343,7 +1344,6 @@ const TASK_COLORS = [
   "#d946ef",
   "#ec4899",
   "#f43f5e",
-  "#14b8a6",
   "#64748b",
 ];
 
@@ -1378,9 +1378,21 @@ function TaskForm({
     }
     return false;
   });
+
+  // Toggle for all-day events
+  const [isAllDay, setIsAllDay] = useState(() => {
+    if (initialData?.startDate && initialData?.endDate) {
+      const start = parseISO(initialData.startDate);
+      const end = parseISO(initialData.endDate);
+      const startHMs = format(start, "HH:mm");
+      const endHMs = format(end, "HH:mm");
+      return startHMs === "00:00" && (endHMs === "23:59" || endHMs === "00:00");
+    }
+    return false;
+  });
   
   const [desc, setDesc] = useState(initialData?.description || "");
-  const [color, setColor] = useState(initialData?.color || TASK_COLORS[4]);
+  const [color, setColor] = useState(initialData?.color || TASK_COLORS[0]);
   
   // Recurrence
   const [recurrence, setRecurrence] = useState<RecurrenceType>(initialData?.recurrence || "NONE");
@@ -1427,9 +1439,12 @@ function TaskForm({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const startISO = new Date(`${startDateStr}T${startTimeStr}`).toISOString();
-    const endISO = useEndDateTime 
-      ? new Date(`${endDateStr}T${endTimeStr}`).toISOString()
+    const sTime = isAllDay ? "00:00" : startTimeStr;
+    const eTime = isAllDay ? "23:59" : endTimeStr;
+
+    const startISO = new Date(`${startDateStr}T${sTime}`).toISOString();
+    const endISO = (useEndDateTime || isAllDay)
+      ? new Date(`${endDateStr}T${eTime}`).toISOString()
       : startISO;
 
     onSubmit({
@@ -1516,29 +1531,55 @@ function TaskForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3 p-3 bg-surface-variant/30 border border-border/60 rounded-xl">
-        <div className="col-span-2 flex items-center gap-2 mb-1.5 border-b border-border/40 pb-1.5">
-          <input
-            type="checkbox"
-            id="useEndDateTime"
-            checked={useEndDateTime}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setUseEndDateTime(checked);
-              if (!checked) {
-                setEndDateStr(startDateStr);
-                setEndTimeStr(startTimeStr);
-              } else {
-                const start = new Date(`${startDateStr}T${startTimeStr}`);
-                const end = new Date(start.getTime() + 60 * 60 * 1000);
-                setEndDateStr(format(end, "yyyy-MM-dd"));
-                setEndTimeStr(format(end, "HH:mm"));
-              }
-            }}
-            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
-          />
-          <label htmlFor="useEndDateTime" className="text-xs font-bold select-none cursor-pointer text-on-surface">
-            종료 날짜 / 시간 설정 활성화 (회의 및 기간 업무 등)
-          </label>
+        <div className="col-span-2 flex items-center justify-between mb-1.5 border-b border-border/40 pb-1.5">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="useEndDateTime"
+              checked={useEndDateTime}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setUseEndDateTime(checked);
+                if (!checked) {
+                  setEndDateStr(startDateStr);
+                  setEndTimeStr(startTimeStr);
+                } else {
+                  const start = new Date(`${startDateStr}T${startTimeStr}`);
+                  const end = new Date(start.getTime() + 60 * 60 * 1000);
+                  setEndDateStr(format(end, "yyyy-MM-dd"));
+                  setEndTimeStr(format(end, "HH:mm"));
+                }
+              }}
+              className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+            />
+            <label htmlFor="useEndDateTime" className="text-xs font-bold select-none cursor-pointer text-on-surface">
+              종료 날짜 / 시간 설정 활성화
+            </label>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isAllDay"
+              checked={isAllDay}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsAllDay(checked);
+                if (checked) {
+                  setStartTimeStr("00:00");
+                  setEndTimeStr("23:59");
+                } else {
+                  const now = new Date();
+                  setStartTimeStr(format(now, "HH:mm"));
+                  setEndTimeStr(format(now, "HH:mm"));
+                }
+              }}
+              className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+            />
+            <label htmlFor="isAllDay" className="text-xs font-bold select-none cursor-pointer text-on-surface">
+              하루종일 (시간 설정 비활성화)
+            </label>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-bold mb-1 text-primary">시작 날짜 / 시간</label>
@@ -1554,8 +1595,11 @@ function TaskForm({
               type="time"
               value={startTimeStr}
               onChange={(e) => handleStartChange(startDateStr, e.target.value)}
-              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
-              required
+              className={`w-full px-2 py-1.5 rounded-lg border border-border text-xs focus:outline-none ${
+                isAllDay ? "bg-surface-variant/30 text-on-surface-variant/50 cursor-not-allowed" : "bg-surface text-on-surface"
+              }`}
+              disabled={isAllDay}
+              required={!isAllDay}
             />
           </div>
         </div>
@@ -1579,10 +1623,10 @@ function TaskForm({
               value={endTimeStr}
               onChange={(e) => handleEndChange(endDateStr, e.target.value)}
               className={`w-full px-2 py-1.5 rounded-lg border border-border text-xs focus:outline-none ${
-                useEndDateTime ? "bg-surface text-on-surface" : "bg-surface-variant/30 text-on-surface-variant/50 cursor-not-allowed"
+                (!useEndDateTime || isAllDay) ? "bg-surface-variant/30 text-on-surface-variant/50 cursor-not-allowed" : "bg-surface text-on-surface"
               }`}
-              disabled={!useEndDateTime}
-              required={useEndDateTime}
+              disabled={!useEndDateTime || isAllDay}
+              required={useEndDateTime && !isAllDay}
             />
           </div>
         </div>
