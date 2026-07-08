@@ -1370,6 +1370,14 @@ function TaskForm({
   const [startTimeStr, setStartTimeStr] = useState(format(initStart, "HH:mm"));
   const [endDateStr, setEndDateStr] = useState(format(initEnd, "yyyy-MM-dd"));
   const [endTimeStr, setEndTimeStr] = useState(format(initEnd, "HH:mm"));
+
+  // Toggle for active end date/time (b & c tasks)
+  const [useEndDateTime, setUseEndDateTime] = useState(() => {
+    if (initialData?.startDate && initialData?.endDate) {
+      return initialData.startDate !== initialData.endDate;
+    }
+    return false;
+  });
   
   const [desc, setDesc] = useState(initialData?.description || "");
   const [color, setColor] = useState(initialData?.color || TASK_COLORS[4]);
@@ -1383,12 +1391,46 @@ function TaskForm({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const handleStartChange = (newDateStr: string, newTimeStr: string) => {
+    const currentStart = new Date(`${startDateStr}T${startTimeStr}`);
+    const currentEnd = new Date(`${endDateStr}T${endTimeStr}`);
+    const durationMs = currentEnd.getTime() - currentStart.getTime();
+
+    setStartDateStr(newDateStr);
+    setStartTimeStr(newTimeStr);
+
+    if (useEndDateTime) {
+      const newStart = new Date(`${newDateStr}T${newTimeStr}`);
+      const newEnd = new Date(newStart.getTime() + (durationMs > 0 ? durationMs : 60 * 60 * 1000));
+      setEndDateStr(format(newEnd, "yyyy-MM-dd"));
+      setEndTimeStr(format(newEnd, "HH:mm"));
+    } else {
+      setEndDateStr(newDateStr);
+      setEndTimeStr(newTimeStr);
+    }
+  };
+
+  const handleEndChange = (newDateStr: string, newTimeStr: string) => {
+    const start = new Date(`${startDateStr}T${startTimeStr}`);
+    const newEnd = new Date(`${newDateStr}T${newTimeStr}`);
+    
+    if (newEnd.getTime() < start.getTime()) {
+      setEndDateStr(startDateStr);
+      setEndTimeStr(startTimeStr);
+    } else {
+      setEndDateStr(newDateStr);
+      setEndTimeStr(newTimeStr);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     const startISO = new Date(`${startDateStr}T${startTimeStr}`).toISOString();
-    const endISO = new Date(`${endDateStr}T${endTimeStr}`).toISOString();
+    const endISO = useEndDateTime 
+      ? new Date(`${endDateStr}T${endTimeStr}`).toISOString()
+      : startISO;
 
     onSubmit({
       title,
@@ -1474,41 +1516,73 @@ function TaskForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3 p-3 bg-surface-variant/30 border border-border/60 rounded-xl">
+        <div className="col-span-2 flex items-center gap-2 mb-1.5 border-b border-border/40 pb-1.5">
+          <input
+            type="checkbox"
+            id="useEndDateTime"
+            checked={useEndDateTime}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setUseEndDateTime(checked);
+              if (!checked) {
+                setEndDateStr(startDateStr);
+                setEndTimeStr(startTimeStr);
+              } else {
+                const start = new Date(`${startDateStr}T${startTimeStr}`);
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                setEndDateStr(format(end, "yyyy-MM-dd"));
+                setEndTimeStr(format(end, "HH:mm"));
+              }
+            }}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+          />
+          <label htmlFor="useEndDateTime" className="text-xs font-bold select-none cursor-pointer text-on-surface">
+            종료 날짜 / 시간 설정 활성화 (회의 및 기간 업무 등)
+          </label>
+        </div>
         <div>
           <label className="block text-xs font-bold mb-1 text-primary">시작 날짜 / 시간</label>
           <div className="flex gap-1.5">
             <input
               type="date"
               value={startDateStr}
-              onChange={(e) => setStartDateStr(e.target.value)}
+              onChange={(e) => handleStartChange(e.target.value, startTimeStr)}
               className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
               required
             />
             <input
               type="time"
               value={startTimeStr}
-              onChange={(e) => setStartTimeStr(e.target.value)}
+              onChange={(e) => handleStartChange(startDateStr, e.target.value)}
               className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
               required
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold mb-1 text-error">종료 날짜 / 시간</label>
+          <label className={`block text-xs font-bold mb-1 ${useEndDateTime ? "text-error" : "text-on-surface-variant/50"}`}>
+            종료 날짜 / 시간
+          </label>
           <div className="flex gap-1.5">
             <input
               type="date"
               value={endDateStr}
-              onChange={(e) => setEndDateStr(e.target.value)}
-              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
-              required
+              onChange={(e) => handleEndChange(e.target.value, endTimeStr)}
+              className={`w-full px-2 py-1.5 rounded-lg border border-border text-xs focus:outline-none ${
+                useEndDateTime ? "bg-surface text-on-surface" : "bg-surface-variant/30 text-on-surface-variant/50 cursor-not-allowed"
+              }`}
+              disabled={!useEndDateTime}
+              required={useEndDateTime}
             />
             <input
               type="time"
               value={endTimeStr}
-              onChange={(e) => setEndTimeStr(e.target.value)}
-              className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs focus:outline-none"
-              required
+              onChange={(e) => handleEndChange(endDateStr, e.target.value)}
+              className={`w-full px-2 py-1.5 rounded-lg border border-border text-xs focus:outline-none ${
+                useEndDateTime ? "bg-surface text-on-surface" : "bg-surface-variant/30 text-on-surface-variant/50 cursor-not-allowed"
+              }`}
+              disabled={!useEndDateTime}
+              required={useEndDateTime}
             />
           </div>
         </div>
