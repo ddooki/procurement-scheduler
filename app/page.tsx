@@ -506,10 +506,12 @@ export default function App() {
           </div>
           <button
             onClick={openNewTaskModal}
-            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-sm"
+            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
           >
-            <Plus className="w-5 h-5" />
-            일정 추가
+            <span className="flex items-center justify-center gap-1.5">
+              <Plus className="w-5 h-5" />
+              <span>일정 추가</span>
+            </span>
           </button>
         </div>
       </nav>
