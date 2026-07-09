@@ -163,7 +163,7 @@ const getTaskStatus = (task: Task): TaskStatus => {
 export default function App() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "tasks" | "calendar" | "workflows" | "periodic" | "settings"
-  >("dashboard");
+  >("calendar");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -599,6 +599,12 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           <NavItem
+            icon={<CalendarIcon className="w-5 h-5" />}
+            label="캘린더"
+            isActive={activeTab === "calendar"}
+            onClick={() => setActiveTab("calendar")}
+          />
+          <NavItem
             icon={<LayoutDashboard className="w-5 h-5" />}
             label="대시보드"
             isActive={activeTab === "dashboard"}
@@ -609,12 +615,6 @@ export default function App() {
             label="작업보드"
             isActive={activeTab === "tasks"}
             onClick={() => setActiveTab("tasks")}
-          />
-          <NavItem
-            icon={<CalendarIcon className="w-5 h-5" />}
-            label="캘린더"
-            isActive={activeTab === "calendar"}
-            onClick={() => setActiveTab("calendar")}
           />
           <NavItem
             icon={<GitMerge className="w-5 h-5 text-tertiary" />}
@@ -1235,15 +1235,15 @@ export default function App() {
 
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-6 py-2 z-50">
+        <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
         <MobileNavItem icon={<LayoutDashboard />} isActive={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
-        <MobileNavItem icon={<ClipboardList />} isActive={activeTab === "tasks"} onClick={() => setActiveTab("tasks")} />
         <button
           onClick={openNewTaskModal}
           className="w-12 h-12 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg transform -translate-y-4"
         >
           <Plus className="w-6 h-6" />
         </button>
-        <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
+        <MobileNavItem icon={<ClipboardList />} isActive={activeTab === "tasks"} onClick={() => setActiveTab("tasks")} />
         <MobileNavItem icon={<SettingsIcon />} isActive={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
       </nav>
 
