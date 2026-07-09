@@ -83,6 +83,65 @@ interface Task {
 
 const STORAGE_KEY = "outsourcing_team_schedule_data";
 
+const updateTaskDependencies = (
+  taskList: Task[],
+  targetId: string,
+  newPrevId: string | undefined,
+  newNextId: string | undefined
+): Task[] => {
+  const targetTask = taskList.find(t => t.id === targetId);
+  const oldPrevId = targetTask?.prevTaskId;
+  const oldNextId = targetTask?.nextTaskId;
+
+  return taskList.map(t => {
+    let nextTaskId = t.nextTaskId;
+    let prevTaskId = t.prevTaskId;
+
+    if (t.id === targetId) {
+      nextTaskId = newNextId || undefined;
+      prevTaskId = newPrevId || undefined;
+    } else {
+      if (oldPrevId && t.id === oldPrevId && t.nextTaskId === targetId) {
+        nextTaskId = undefined;
+      }
+      if (oldNextId && t.id === oldNextId && t.prevTaskId === targetId) {
+        prevTaskId = undefined;
+      }
+
+      if (newPrevId && t.id === newPrevId) {
+        nextTaskId = targetId;
+      }
+      if (newNextId && t.id === newNextId) {
+        prevTaskId = targetId;
+      }
+
+      const newPrevTask = taskList.find(x => x.id === newPrevId);
+      if (newPrevTask && newPrevTask.nextTaskId === t.id && t.id !== targetId) {
+        prevTaskId = undefined;
+      }
+      const newNextTask = taskList.find(x => x.id === newNextId);
+      if (newNextTask && newNextTask.prevTaskId === t.id && t.id !== targetId) {
+        nextTaskId = undefined;
+      }
+    }
+
+    return {
+      ...t,
+      nextTaskId,
+      prevTaskId
+    };
+  });
+};
+
+const clearDeletedTaskDependencies = (taskList: Task[], deletedId: string): Task[] => {
+  return taskList.map(t => {
+    let nextTaskId = t.nextTaskId === deletedId ? undefined : t.nextTaskId;
+    let prevTaskId = t.prevTaskId === deletedId ? undefined : t.prevTaskId;
+    return { ...t, nextTaskId, prevTaskId };
+  });
+};
+
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "tasks" | "calendar" | "workflows" | "periodic" | "settings"
@@ -100,6 +159,11 @@ export default function App() {
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<"ASK" | "PASSWORD">("ASK");
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
+
+  // Chained Tasks Custom Setup Modal States
+  const [isChainSetupModalOpen, setIsChainSetupModalOpen] = useState(false);
+  const [selectedChainTasks, setSelectedChainTasks] = useState<string[]>([]);
+  const [chainSortKey, setChainSortKey] = useState<"title" | "deadline">("deadline");
 
   // Load Tasks
   useEffect(() => {
@@ -285,8 +349,10 @@ export default function App() {
 
   const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     let updatedTasks = [...tasks];
+    let targetId = "";
 
     if (editingTask) {
+      targetId = editingTask.id;
       // Modify existing
       const updatedTask = {
         ...editingTask,
@@ -312,6 +378,7 @@ export default function App() {
     } else {
       // Create new
       const newId = crypto.randomUUID();
+      targetId = newId;
       const newTask: Task = {
         ...taskData,
         id: newId,
@@ -349,6 +416,9 @@ export default function App() {
 
       updatedTasks = [...updatedTasks, newTask, ...recurrentTasks];
     }
+
+    // Sync dependencies bidirectionally
+    updatedTasks = updateTaskDependencies(updatedTasks, targetId, taskData.prevTaskId, taskData.nextTaskId);
 
     await saveTasksState(updatedTasks);
     setIsTaskModalOpen(false);
@@ -391,9 +461,40 @@ export default function App() {
   };
 
   const handleDeleteTask = async (id: string) => {
-    const updatedTasks = tasks.filter((t) => t.id !== id);
+    let updatedTasks = clearDeletedTaskDependencies(tasks, id);
+    updatedTasks = updatedTasks.filter((t) => t.id !== id);
     await saveTasksState(updatedTasks);
     setIsTaskModalOpen(false);
+  };
+
+  const handleSaveChain = async () => {
+    if (selectedChainTasks.length < 2) {
+      alert("연쇄 업무를 설정하려면 최소 2개 이상의 일정을 선택해야 합니다.");
+      return;
+    }
+
+    let updatedTasks = [...tasks];
+
+    // Clear existing connections for all selected tasks first to avoid dangling cross-links
+    updatedTasks = updatedTasks.map(t => {
+      if (selectedChainTasks.includes(t.id)) {
+        return { ...t, prevTaskId: undefined, nextTaskId: undefined };
+      }
+      return t;
+    });
+
+    // Sequentially set the new chain links using our bidirectional update helper
+    for (let i = 0; i < selectedChainTasks.length; i++) {
+      const currentId = selectedChainTasks[i];
+      const prevId = i > 0 ? selectedChainTasks[i - 1] : undefined;
+      const nextId = i < selectedChainTasks.length - 1 ? selectedChainTasks[i + 1] : undefined;
+
+      updatedTasks = updateTaskDependencies(updatedTasks, currentId, prevId, nextId);
+    }
+
+    await saveTasksState(updatedTasks);
+    setIsChainSetupModalOpen(false);
+    setSelectedChainTasks([]);
   };
 
   // Safe purge Vercel KV with password protection
@@ -473,7 +574,7 @@ export default function App() {
           />
           <NavItem
             icon={<GitMerge className="w-5 h-5 text-tertiary" />}
-            label="순차 연쇄 업무"
+            label="연쇄 업무 설정"
             isActive={activeTab === "workflows"}
             onClick={() => setActiveTab("workflows")}
           />
@@ -775,7 +876,7 @@ export default function App() {
                   className="h-full flex flex-col pb-6"
                 >
                   <div className="mb-6 flex-shrink-0">
-                    <h2 className="font-headline text-3xl font-bold mb-1">순차 연쇄 업무</h2>
+                    <h2 className="font-headline text-3xl font-bold mb-1">연쇄 업무 설정</h2>
                     <p className="text-on-surface-variant">
                       선후 관계가 연결되어 순서대로 처리해야 하는 주요 업무 프로세스를 관리합니다.
                     </p>
@@ -788,10 +889,13 @@ export default function App() {
                           순차 실행 프로세스 구조 (업무를 누르면 수정하거나 새 후속 업무를 생성할 수 있습니다)
                         </span>
                         <button
-                          onClick={openNewTaskModal}
+                          onClick={() => {
+                            setSelectedChainTasks([]);
+                            setIsChainSetupModalOpen(true);
+                          }}
                           className="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm flex items-center gap-1 hover:opacity-90 transition-opacity"
                         >
-                          <Plus className="w-4 h-4" /> 새 연쇄 업무 추가
+                          <GitMerge className="w-4 h-4" /> 기존 업무 연쇄 업무로 설정하기
                         </button>
                       </div>
 
@@ -1171,6 +1275,184 @@ export default function App() {
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Chain Setup Modal */}
+      <AnimatePresence>
+        {isChainSetupModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setIsChainSetupModalOpen(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-surface w-full max-w-xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col border border-border"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
+                <h2 className="font-headline text-xl font-bold flex items-center gap-2 text-primary">
+                  <GitMerge className="w-5 h-5" />
+                  기존 업무 연쇄 설정
+                </h2>
+                <button
+                  onClick={() => setIsChainSetupModalOpen(false)}
+                  className="p-2 hover:bg-surface-variant rounded-full text-on-surface-variant"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  연쇄적으로 연결할 일정을 순서대로 클릭해 주세요. 선택한 순서대로 <strong>선행 업무 ➔ 후속 업무</strong>의 순서로 연결 체인이 생성됩니다.
+                </p>
+
+                {/* Sorting Controls */}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChainSortKey("deadline")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      chainSortKey === "deadline"
+                        ? "bg-primary text-on-primary border-primary shadow-sm"
+                        : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
+                    }`}
+                  >
+                    일정 순서 순
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChainSortKey("title")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      chainSortKey === "title"
+                        ? "bg-primary text-on-primary border-primary shadow-sm"
+                        : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
+                    }`}
+                  >
+                    제목순
+                  </button>
+                </div>
+
+                {/* Task List */}
+                <div className="flex-1 min-h-[250px] max-h-[40vh] overflow-y-auto border border-border rounded-xl p-2 space-y-1.5 bg-background/50">
+                  {tasks.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-on-surface-variant/60">
+                      등록된 일정이 없습니다.
+                    </div>
+                  ) : (
+                    [...tasks]
+                      .sort((a, b) => {
+                        if (chainSortKey === "title") {
+                          return a.title.localeCompare(b.title);
+                        } else {
+                          return parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime();
+                        }
+                      })
+                      .map((task) => {
+                        const selectionIndex = selectedChainTasks.indexOf(task.id);
+                        const isSelected = selectionIndex !== -1;
+
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedChainTasks(prev => prev.filter(id => id !== task.id));
+                              } else {
+                                setSelectedChainTasks(prev => [...prev, task.id]);
+                              }
+                            }}
+                            className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                              isSelected
+                                ? "bg-primary-container/20 border-primary shadow-sm"
+                                : "bg-surface border-border hover:bg-surface-variant"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Sequence Badge / Checkbox */}
+                              <div
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+                                  isSelected
+                                    ? "bg-primary border-primary text-on-primary"
+                                    : "border-border bg-background"
+                                }`}
+                              >
+                                {isSelected ? selectionIndex + 1 : ""}
+                              </div>
+
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <TaskBadge type={task.type} />
+                                  <span className="font-bold text-xs text-on-surface line-clamp-1">{task.title}</span>
+                                </div>
+                                <span className="text-[10px] text-on-surface-variant font-medium mt-1">
+                                  일정: {format(parseISO(task.deadline), "yyyy년 MM월 dd일 HH:mm", { locale: ko })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+
+                {/* Selected Sequence visualization */}
+                {selectedChainTasks.length > 0 && (
+                  <div className="p-3 bg-surface-variant/30 border border-border rounded-xl">
+                    <span className="text-[10px] font-bold text-on-surface-variant block mb-2">설정할 연쇄 업무 경로 미리보기:</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedChainTasks.map((id, index) => {
+                        const t = tasks.find(x => x.id === id);
+                        if (!t) return null;
+                        return (
+                          <React.Fragment key={id}>
+                            <div className="px-2.5 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
+                                {index + 1}
+                              </span>
+                              <span className="max-w-[100px] truncate">{t.title}</span>
+                            </div>
+                            {index < selectedChainTasks.length - 1 && (
+                              <ArrowRight className="w-3.5 h-3.5 text-on-surface-variant/60" />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 p-6 border-t border-border flex-shrink-0 bg-surface">
+                <button
+                  type="button"
+                  onClick={() => setIsChainSetupModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveChain}
+                  disabled={selectedChainTasks.length < 2}
+                  className={`flex-1 py-2.5 rounded-xl font-bold transition-all shadow-sm text-xs ${
+                    selectedChainTasks.length >= 2
+                      ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                      : "bg-surface-variant text-on-surface-variant/50 border border-border cursor-not-allowed"
+                  }`}
+                >
+                  아래 연쇄 업무로 설정하기
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -1635,7 +1917,7 @@ function TaskForm({
       {/* Dependency Link UI */}
       <div className="p-3 bg-surface-variant/30 border border-border/60 rounded-xl flex flex-col gap-2">
         <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-          <GitMerge className="w-3.5 h-3.5 text-primary" /> 업무 연쇄 체인 연동 설정 (순차 업무)
+          <GitMerge className="w-3.5 h-3.5 text-primary" /> 연쇄 업무 설정
         </span>
         <div className="grid grid-cols-2 gap-3">
           <div>
