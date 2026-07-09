@@ -31,6 +31,7 @@ import {
   CalendarDays,
   CheckSquare,
   History,
+  Pencil,
 } from "lucide-react";
 import {
   format,
@@ -79,6 +80,7 @@ interface Task {
   // Span Date Support
   startDate?: string;
   endDate?: string;
+  chainName?: string;
 }
 
 const STORAGE_KEY = "outsourcing_team_schedule_data";
@@ -164,6 +166,10 @@ export default function App() {
   const [isChainSetupModalOpen, setIsChainSetupModalOpen] = useState(false);
   const [selectedChainTasks, setSelectedChainTasks] = useState<string[]>([]);
   const [chainSortKey, setChainSortKey] = useState<"title" | "deadline">("deadline");
+
+  // Renaming chain states
+  const [renamingChainTaskId, setRenamingChainTaskId] = useState<string | null>(null);
+  const [renamingChainName, setRenamingChainName] = useState<string>("");
 
   // Load Tasks
   useEffect(() => {
@@ -497,6 +503,18 @@ export default function App() {
     setSelectedChainTasks([]);
   };
 
+  const handleSaveChainName = async (startTaskId: string, newName: string) => {
+    if (!newName.trim()) return;
+    const updatedTasks = tasks.map(t => {
+      if (t.id === startTaskId) {
+        return { ...t, chainName: newName.trim() };
+      }
+      return t;
+    });
+    await saveTasksState(updatedTasks);
+    setRenamingChainTaskId(null);
+  };
+
   // Safe purge Vercel KV with password protection
   const handlePurgeAllData = async () => {
     if (deletePassword === "123") {
@@ -524,6 +542,16 @@ export default function App() {
       (a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime(),
     )
     .slice(0, 5);
+
+  const inProgressMultiDayTasks = tasks.filter((t) => {
+    if (t.status !== "IN_PROGRESS") return false;
+    if (!t.startDate || !t.endDate) return false;
+    const start = startOfDay(parseISO(t.startDate));
+    const end = startOfDay(parseISO(t.endDate));
+    if (isSameDay(start, end)) return false;
+    const today = startOfDay(new Date());
+    return isWithinInterval(today, { start, end });
+  });
 
   if (isLoading) {
     return (
@@ -658,9 +686,9 @@ export default function App() {
                     </div>
                     <div className="bg-surface rounded-2xl p-5 border border-border shadow-sm flex items-center justify-between hover:border-tertiary/50 transition-colors">
                       <div>
-                        <p className="text-sm font-bold text-on-surface-variant mb-1">진행 중인 작업</p>
+                        <p className="text-sm font-bold text-on-surface-variant mb-1">진행 중인 일정</p>
                         <h3 className="text-3xl font-headline font-bold text-tertiary">
-                          {tasks.filter((t) => t.status === "IN_PROGRESS").length}
+                          {inProgressMultiDayTasks.length}
                         </h3>
                       </div>
                       <div className="w-12 h-12 rounded-full bg-tertiary-container text-tertiary flex items-center justify-center">
@@ -923,10 +951,55 @@ export default function App() {
 
                             return (
                               <div key={startTask.id} className="p-5 rounded-2xl bg-surface-variant/30 border border-border flex flex-col gap-4">
-                                <h3 className="font-bold text-md text-primary flex items-center gap-2">
-                                  <Layers className="w-4 h-4" />
-                                  {startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스
-                                </h3>
+                                {renamingChainTaskId === startTask.id ? (
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <input
+                                      type="text"
+                                      value={renamingChainName}
+                                      onChange={(e) => setRenamingChainName(e.target.value)}
+                                      className="flex-1 px-2.5 py-1 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:ring-1 focus:ring-primary font-bold text-on-surface"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleSaveChainName(startTask.id, renamingChainName);
+                                        } else if (e.key === "Escape") {
+                                          setRenamingChainTaskId(null);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => handleSaveChainName(startTask.id, renamingChainName)}
+                                      className="p-1 text-primary hover:bg-surface-variant rounded-md"
+                                      title="저장"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setRenamingChainTaskId(null)}
+                                      className="p-1 text-on-surface-variant hover:bg-surface-variant rounded-md"
+                                      title="취소"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <h3 className="font-bold text-md text-primary flex items-center justify-between group flex-1">
+                                    <span className="flex items-center gap-2">
+                                      <Layers className="w-4 h-4" />
+                                      {startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setRenamingChainTaskId(startTask.id);
+                                        setRenamingChainName(startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`);
+                                      }}
+                                      className="p-1 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-variant rounded-md text-on-surface-variant transition-opacity ml-2"
+                                      title="이름 수정"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                  </h3>
+                                )}
                                 
                                 <div className="flex flex-col gap-3">
                                   {chain.map((task, idx) => (
@@ -2000,6 +2073,7 @@ function FullCalendar({
   onEditTask: (t: Task) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorMode, setSelectorMode] = useState<"month" | "year">("month");
   const [yearPageStart, setYearPageStart] = useState(() => {
@@ -2013,9 +2087,56 @@ function FullCalendar({
   const startDay = getDay(monthStart);
   const paddingDays = Array.from({ length: startDay }).map((_, i) => i);
 
+  // Time slots for 24 hours
+  const hours = Array.from({ length: 24 }).map((_, i) => i);
+
+  // Get tasks scheduled on selectedDate
+  const selectedDateTasks = selectedDate
+    ? tasks.filter((t) => {
+        if (t.startDate && t.endDate) {
+          const start = startOfDay(parseISO(t.startDate));
+          const end = startOfDay(parseISO(t.endDate));
+          const target = startOfDay(selectedDate);
+          return isWithinInterval(target, { start, end });
+        }
+        return isSameDay(parseISO(t.deadline), selectedDate);
+      })
+    : [];
+
+  const allDayTasks = selectedDateTasks.filter((t) => {
+    if (t.startDate && t.endDate) {
+      const start = parseISO(t.startDate);
+      const end = parseISO(t.endDate);
+      return (
+        format(start, "HH:mm") === "00:00" &&
+        (format(end, "HH:mm") === "23:59" || format(end, "HH:mm") === "00:00")
+      );
+    }
+    return false;
+  });
+
+  const getTasksForHour = (hour: number) => {
+    return selectedDateTasks.filter((t) => {
+      // Exclude all day tasks
+      if (t.startDate && t.endDate) {
+        const start = parseISO(t.startDate);
+        const end = parseISO(t.endDate);
+        if (
+          format(start, "HH:mm") === "00:00" &&
+          (format(end, "HH:mm") === "23:59" || format(end, "HH:mm") === "00:00")
+        ) {
+          return false;
+        }
+      }
+      const date = t.startDate ? parseISO(t.startDate) : parseISO(t.deadline);
+      return date.getHours() === hour;
+    });
+  };
+
   return (
     <div className="h-full flex flex-col bg-surface-variant/30 rounded-xl overflow-hidden">
-      <div className="relative flex items-center justify-between mb-4 p-2">
+      {/* Calendar Header */}
+      <div className="relative flex items-center justify-between mb-4 p-2 flex-shrink-0">
         <button
           onClick={() => {
             setShowSelector(!showSelector);
@@ -2028,13 +2149,19 @@ function FullCalendar({
         </button>
         <div className="flex gap-2">
           <button
-            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+            onClick={() => {
+              setCurrentDate(subMonths(currentDate, 1));
+              setSelectedDate(null);
+            }}
             className="p-2 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
-            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+            onClick={() => {
+              setCurrentDate(addMonths(currentDate, 1));
+              setSelectedDate(null);
+            }}
             className="p-2 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
@@ -2073,6 +2200,7 @@ function FullCalendar({
                           const newDate = new Date(currentDate);
                           newDate.setMonth(i);
                           setCurrentDate(newDate);
+                          setSelectedDate(null);
                           setShowSelector(false);
                         }}
                         className={`py-2 rounded-lg font-medium text-sm transition-colors ${
@@ -2109,6 +2237,7 @@ function FullCalendar({
                             const newDate = new Date(currentDate);
                             newDate.setFullYear(year);
                             setCurrentDate(newDate);
+                            setSelectedDate(null);
                             setSelectorMode("month");
                           }}
                           className={`py-2 rounded-lg font-medium text-sm transition-colors ${
@@ -2127,83 +2256,187 @@ function FullCalendar({
         </AnimatePresence>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 text-center text-sm font-bold mb-2 p-2">
-        <div className="text-red-500">일</div>
-        <div className="text-on-surface-variant">월</div>
-        <div className="text-on-surface-variant">화</div>
-        <div className="text-on-surface-variant">수</div>
-        <div className="text-on-surface-variant">목</div>
-        <div className="text-on-surface-variant">금</div>
-        <div className="text-blue-500">토</div>
-      </div>
+      {/* Main Grid & Timeline Section */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+        {/* Left Side: Calendar Grid */}
+        <div className={`flex flex-col h-full transition-all duration-300 ${selectedDate ? "w-7/12" : "w-full"}`}>
+          <div className="grid grid-cols-7 gap-2 text-center text-sm font-bold mb-2 p-2 flex-shrink-0">
+            <div className="text-red-500">일</div>
+            <div className="text-on-surface-variant">월</div>
+            <div className="text-on-surface-variant">화</div>
+            <div className="text-on-surface-variant">수</div>
+            <div className="text-on-surface-variant">목</div>
+            <div className="text-on-surface-variant">금</div>
+            <div className="text-blue-500">토</div>
+          </div>
 
-      <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-2">
-        {paddingDays.map((i) => (
-          <div key={`pad-${i}`} className="p-2 rounded-xl bg-surface/50" />
-        ))}
-        {daysInMonth.map((day) => {
-          const isT = isToday(day);
-          const dayOfWeek = getDay(day);
-          const isSun = dayOfWeek === 0;
-          const isSat = dayOfWeek === 6;
-          const dayTasks = tasks.filter((t) => {
-            if (t.startDate && t.endDate) {
-              const start = startOfDay(parseISO(t.startDate));
-              const end = startOfDay(parseISO(t.endDate));
-              const target = startOfDay(day);
-              return isWithinInterval(target, { start, end });
-            }
-            return isSameDay(parseISO(t.deadline), day);
-          });
+          <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-2 cell-scroll">
+            {paddingDays.map((i) => (
+              <div key={`pad-${i}`} className="p-2 rounded-xl bg-surface/50" />
+            ))}
+            {daysInMonth.map((day) => {
+              const isT = isToday(day);
+              const isSel = selectedDate && isSameDay(day, selectedDate);
+              const dayOfWeek = getDay(day);
+              const isSun = dayOfWeek === 0;
+              const isSat = dayOfWeek === 6;
+              const dayTasks = tasks.filter((t) => {
+                if (t.startDate && t.endDate) {
+                  const start = startOfDay(parseISO(t.startDate));
+                  const end = startOfDay(parseISO(t.endDate));
+                  const target = startOfDay(day);
+                  return isWithinInterval(target, { start, end });
+                }
+                return isSameDay(parseISO(t.deadline), day);
+              });
 
-          // Sort tasks: multi-day tasks first (by duration descending), then by title
-          dayTasks.sort((a, b) => {
-            const getDuration = (t: Task) => {
-              if (t.startDate && t.endDate) {
-                const start = startOfDay(parseISO(t.startDate));
-                const end = startOfDay(parseISO(t.endDate));
-                return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-              }
-              return 1;
-            };
-            const durA = getDuration(a);
-            const durB = getDuration(b);
-            if (durA !== durB) {
-              return durB - durA;
-            }
-            return a.title.localeCompare(b.title);
-          });
+              dayTasks.sort((a, b) => {
+                const getDuration = (t: Task) => {
+                  if (t.startDate && t.endDate) {
+                    const start = startOfDay(parseISO(t.startDate));
+                    const end = startOfDay(parseISO(t.endDate));
+                    return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                  }
+                  return 1;
+                };
+                const durA = getDuration(a);
+                const durB = getDuration(b);
+                if (durA !== durB) {
+                  return durB - durA;
+                }
+                return a.title.localeCompare(b.title);
+              });
 
-          return (
-            <div
-              key={day.toString()}
-              className={`p-2 rounded-xl bg-surface border ${isT ? "border-primary shadow-sm" : "border-border"} flex flex-col min-h-[80px] overflow-hidden`}
-            >
-              <div className={`text-sm font-bold mb-1.5 flex items-center justify-between ${isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"}`}>
-                <span>{format(day, "d")}</span>
-                {isT && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
-                )}
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-1.5 hide-scrollbar">
-                {dayTasks.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditTask(t);
-                    }}
-                    style={{ backgroundColor: t.color || "#4a7c59" }}
-                    className="text-white text-[11px] font-medium px-2 py-1 rounded truncate leading-tight shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                    title={t.title}
-                  >
-                    <span className={t.status === "DONE" ? "line-through opacity-70" : ""}>{t.title}</span>
+              return (
+                <div
+                  key={day.toString()}
+                  onClick={() => setSelectedDate(isSel ? null : day)}
+                  className={`p-2 rounded-xl bg-surface border ${
+                    isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
+                  } flex flex-col min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
+                >
+                  <div className={`text-sm font-bold mb-1.5 flex items-center justify-between ${
+                    isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
+                  }`}>
+                    <span>{format(day, "d")}</span>
+                    {isT && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1 overflow-y-auto space-y-1.5 cell-scroll">
+                    {dayTasks.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditTask(t);
+                        }}
+                        style={{ backgroundColor: t.color || "#4a7c59" }}
+                        className="text-white text-[11px] font-medium px-2 py-1 rounded truncate leading-tight shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                        title={t.title}
+                      >
+                        <span className={t.status === "DONE" ? "line-through opacity-70" : ""}>{t.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Side: Google Calendar Style Daily Timeline View */}
+        {selectedDate && (
+          <div className="w-5/12 border-l border-border bg-surface flex flex-col h-full animate-in slide-in-from-right duration-300">
+            {/* Timeline Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface">
+              <h3 className="font-headline font-bold text-sm text-primary flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4" />
+                {format(selectedDate, "M월 d일 (E) 일정", { locale: ko })}
+              </h3>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors"
+                title="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          );
-        })}
+
+            {/* Timeline Scroll Content */}
+            <div className="flex-1 overflow-y-auto p-4 cell-scroll space-y-4">
+              {selectedDateTasks.length === 0 ? (
+                <div className="h-48 flex items-center justify-center text-xs text-on-surface-variant/50 border-2 border-dashed border-border rounded-xl">
+                  해당 날짜에 등록된 일정이 없습니다.
+                </div>
+              ) : (
+                <>
+                  {/* All Day Section */}
+                  {allDayTasks.length > 0 && (
+                    <div className="p-3 bg-surface-variant/40 rounded-xl border border-border/50">
+                      <span className="text-[10px] font-bold text-on-surface-variant block mb-2">하루 종일</span>
+                      <div className="space-y-1.5">
+                        {allDayTasks.map((t) => (
+                          <div
+                            key={t.id}
+                            onClick={() => onEditTask(t)}
+                            style={{ backgroundColor: t.color || "#4a7c59" }}
+                            className="text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity truncate"
+                          >
+                            {t.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hourly timeline list */}
+                  <div className="relative border-l border-border/60 ml-12 pl-4 space-y-4 py-2">
+                    {hours.map((h) => {
+                      const hourTasks = getTasksForHour(h);
+                      const timeLabel = h < 12 ? `오전 ${h === 0 ? 12 : h}시` : `오후 ${h === 12 ? 12 : h - 12}시`;
+                      
+                      return (
+                        <div key={h} className="relative min-h-[44px] flex flex-col justify-center">
+                          {/* Hour tag */}
+                          <div className="absolute right-full mr-4 text-[10px] font-bold text-on-surface-variant/60 -translate-y-1/2 top-1/2 w-12 text-right">
+                            {timeLabel}
+                          </div>
+                          
+                          {/* Dotted horizontal line */}
+                          <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20 -translate-y-1/2" />
+                          
+                          {/* Tasks under this hour */}
+                          <div className="relative z-10 space-y-1.5">
+                            {hourTasks.map((t) => {
+                              const startTime = t.startDate ? format(parseISO(t.startDate), "HH:mm") : "";
+                              const endTime = t.endDate ? format(parseISO(t.endDate), "HH:mm") : "";
+                              const timeRange = startTime && endTime ? `${startTime} - ${endTime}` : format(parseISO(t.deadline), "HH:mm");
+
+                              return (
+                                <div
+                                  key={t.id}
+                                  onClick={() => onEditTask(t)}
+                                  style={{ backgroundColor: t.color || "#4a7c59" }}
+                                  className="text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-all hover:scale-[1.01] flex items-center justify-between"
+                                >
+                                  <span className="truncate mr-2">{t.title}</span>
+                                  <span className="text-[9px] opacity-90 font-normal shrink-0 bg-white/20 px-1.5 py-0.5 rounded">
+                                    {timeRange}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
