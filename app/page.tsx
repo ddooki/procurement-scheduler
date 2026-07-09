@@ -143,6 +143,22 @@ const clearDeletedTaskDependencies = (taskList: Task[], deletedId: string): Task
   });
 };
 
+const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
+  const now = new Date();
+  const start = task.startDate ? parseISO(task.startDate) : parseISO(task.deadline);
+  const end = task.endDate ? parseISO(task.endDate) : parseISO(task.deadline);
+  if (now < start) return "BEFORE";
+  if (now > end) return "AFTER";
+  return "DURING";
+};
+
+const getTaskStatus = (task: Task): TaskStatus => {
+  const period = getTaskTimePeriod(task);
+  if (period === "AFTER") return "DONE";
+  if (task.status === "DONE") return "DONE";
+  return period === "BEFORE" ? "TODO" : "IN_PROGRESS";
+};
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
@@ -663,7 +679,7 @@ export default function App() {
 
         {/* Dynamic Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-6">
-          <div className="max-w-7xl mx-auto h-full flex flex-col">
+          <div className={`${activeTab === "calendar" ? "max-w-none w-full" : "max-w-7xl mx-auto"} h-full flex flex-col`}>
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
                 <motion.div
@@ -851,7 +867,7 @@ export default function App() {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
                     <TaskColumn
                       title="해야 할 일"
-                      tasks={tasks.filter((t) => t.status === "TODO")}
+                      tasks={tasks.filter((t) => getTaskStatus(t) === "TODO")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="TODO"
@@ -859,7 +875,7 @@ export default function App() {
                     />
                     <TaskColumn
                       title="진행 중"
-                      tasks={tasks.filter((t) => t.status === "IN_PROGRESS")}
+                      tasks={tasks.filter((t) => getTaskStatus(t) === "IN_PROGRESS")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="IN_PROGRESS"
@@ -867,7 +883,7 @@ export default function App() {
                     />
                     <TaskColumn
                       title="완료"
-                      tasks={tasks.filter((t) => t.status === "DONE")}
+                      tasks={tasks.filter((t) => getTaskStatus(t) === "DONE")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="DONE"
@@ -1644,25 +1660,7 @@ function TaskColumn({
               </div>
 
               <div className="flex items-center gap-1">
-                {status !== "TODO" && (
-                  <button
-                    onClick={() => onUpdateStatus(task.id, "TODO")}
-                    className="p-1 hover:bg-surface-variant rounded text-on-surface-variant"
-                    title="해야 할 일로 이동"
-                  >
-                    <RefreshCcw className="w-4 h-4" />
-                  </button>
-                )}
-                {status !== "IN_PROGRESS" && (
-                  <button
-                    onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
-                    className="p-1 hover:bg-surface-variant rounded text-tertiary"
-                    title="진행 중으로 이동"
-                  >
-                    <Clock className="w-4 h-4" />
-                  </button>
-                )}
-                {status !== "DONE" && (
+                {status === "TODO" && (
                   <button
                     onClick={() => onUpdateStatus(task.id, "DONE")}
                     className="p-1 hover:bg-surface-variant rounded text-primary"
@@ -1670,6 +1668,37 @@ function TaskColumn({
                   >
                     <Check className="w-4 h-4" />
                   </button>
+                )}
+                {status === "IN_PROGRESS" && (
+                  <button
+                    onClick={() => onUpdateStatus(task.id, "DONE")}
+                    className="p-1 hover:bg-surface-variant rounded text-primary"
+                    title="완료 처리"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
+                {status === "DONE" && (
+                  <>
+                    {getTaskTimePeriod(task) === "BEFORE" && (
+                      <button
+                        onClick={() => onUpdateStatus(task.id, "TODO")}
+                        className="p-1 hover:bg-surface-variant rounded text-on-surface-variant"
+                        title="해야 할 일로 복원"
+                      >
+                        <RefreshCcw className="w-4 h-4" />
+                      </button>
+                    )}
+                    {getTaskTimePeriod(task) === "DURING" && (
+                      <button
+                        onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
+                        className="p-1 hover:bg-surface-variant rounded text-tertiary"
+                        title="진행 중으로 복원"
+                      >
+                        <Clock className="w-4 h-4" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -2081,11 +2110,32 @@ function FullCalendar({
     return 2020 + Math.floor((currentYear - 2020) / 12) * 12;
   });
 
+  const [hideWeekends, setHideWeekends] = useState(false);
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  
+  const daysToShow = daysInMonth.filter(day => {
+    if (hideWeekends) {
+      const dayOfWeek = getDay(day);
+      return dayOfWeek !== 0 && dayOfWeek !== 6;
+    }
+    return true;
+  });
+
   const startDay = getDay(monthStart);
-  const paddingDays = Array.from({ length: startDay }).map((_, i) => i);
+  let paddingCount = 0;
+  if (hideWeekends) {
+    const firstDayOfWeek = getDay(monthStart);
+    if (firstDayOfWeek === 0 || firstDayOfWeek === 6) {
+      paddingCount = 0;
+    } else {
+      paddingCount = firstDayOfWeek - 1; // Mon=0, Tue=1, etc.
+    }
+  } else {
+    paddingCount = startDay;
+  }
+  const paddingDays = Array.from({ length: paddingCount }).map((_, i) => i);
 
   // Time slots for 24 hours
   const hours = Array.from({ length: 24 }).map((_, i) => i);
@@ -2137,36 +2187,51 @@ function FullCalendar({
     <div className="h-full flex flex-col bg-surface-variant/30 rounded-xl overflow-hidden">
       {/* Calendar Header */}
       <div className="relative flex items-center justify-between mb-4 p-2 flex-shrink-0">
-        <button
-          onClick={() => {
-            setShowSelector(!showSelector);
-            setSelectorMode("month");
-          }}
-          className="font-headline text-2xl font-bold hover:text-primary transition-colors flex items-center gap-1 p-2 rounded-lg hover:bg-surface-variant"
-        >
-          {format(currentDate, "yyyy년 M월", { locale: ko })}
-          <ChevronDown className="w-6 h-6" />
-        </button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => {
-              setCurrentDate(subMonths(currentDate, 1));
-              setSelectedDate(null);
+              setShowSelector(!showSelector);
+              setSelectorMode("month");
             }}
-            className="p-2 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
+            className="font-headline text-2xl font-bold hover:text-primary transition-colors flex items-center gap-1 p-2 rounded-lg hover:bg-surface-variant"
           >
-            <ChevronLeft className="w-5 h-5" />
+            {format(currentDate, "yyyy년 M월", { locale: ko })}
+            <ChevronDown className="w-6 h-6" />
           </button>
-          <button
-            onClick={() => {
-              setCurrentDate(addMonths(currentDate, 1));
-              setSelectedDate(null);
-            }}
-            className="p-2 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                setCurrentDate(subMonths(currentDate, 1));
+                setSelectedDate(null);
+              }}
+              className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
+              title="이전 달"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setCurrentDate(addMonths(currentDate, 1));
+                setSelectedDate(null);
+              }}
+              className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
+              title="다음 달"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+
+        <button
+          onClick={() => setHideWeekends(!hideWeekends)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+            hideWeekends
+              ? "bg-tertiary text-on-tertiary border-tertiary shadow-sm"
+              : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
+          }`}
+        >
+          {hideWeekends ? "주말 표시하기" : "주말 숨기기"}
+        </button>
 
         {/* Date Selector Popover */}
         <AnimatePresence>
@@ -2259,22 +2324,22 @@ function FullCalendar({
       {/* Main Grid & Timeline Section */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
         {/* Left Side: Calendar Grid */}
-        <div className={`flex flex-col h-full transition-all duration-300 ${selectedDate ? "w-7/12" : "w-full"}`}>
-          <div className="grid grid-cols-7 gap-2 text-center text-sm font-bold mb-2 p-2 flex-shrink-0">
-            <div className="text-red-500">일</div>
+        <div className={`flex flex-col h-full transition-all duration-300 ${selectedDate ? "w-7/12 shrink-0 min-w-[500px]" : "w-full"} overflow-x-auto`}>
+          <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-2 text-center text-sm font-bold mb-2 p-2 flex-shrink-0`}>
+            {!hideWeekends && <div className="text-red-500">일</div>}
             <div className="text-on-surface-variant">월</div>
             <div className="text-on-surface-variant">화</div>
             <div className="text-on-surface-variant">수</div>
             <div className="text-on-surface-variant">목</div>
             <div className="text-on-surface-variant">금</div>
-            <div className="text-blue-500">토</div>
+            {!hideWeekends && <div className="text-blue-500">토</div>}
           </div>
 
-          <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-2 cell-scroll">
+          <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-2 flex-1 auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-2 cell-scroll`}>
             {paddingDays.map((i) => (
               <div key={`pad-${i}`} className="p-2 rounded-xl bg-surface/50" />
             ))}
-            {daysInMonth.map((day) => {
+            {daysToShow.map((day) => {
               const isT = isToday(day);
               const isSel = selectedDate && isSameDay(day, selectedDate);
               const dayOfWeek = getDay(day);
@@ -2346,97 +2411,163 @@ function FullCalendar({
         </div>
 
         {/* Right Side: Google Calendar Style Daily Timeline View */}
-        {selectedDate && (
-          <div className="w-5/12 border-l border-border bg-surface flex flex-col h-full animate-in slide-in-from-right duration-300">
-            {/* Timeline Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface">
-              <h3 className="font-headline font-bold text-sm text-primary flex items-center gap-1.5">
-                <CalendarIcon className="w-4 h-4" />
-                {format(selectedDate, "M월 d일 (E) 일정", { locale: ko })}
-              </h3>
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors"
-                title="닫기"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        {selectedDate && (() => {
+          const timedTasks = selectedDateTasks.filter((t) => {
+            if (t.startDate && t.endDate) {
+              const start = parseISO(t.startDate);
+              const end = parseISO(t.endDate);
+              if (
+                format(start, "HH:mm") === "00:00" &&
+                (format(end, "HH:mm") === "23:59" || format(end, "HH:mm") === "00:00")
+              ) {
+                return false;
+              }
+            }
+            return true;
+          });
 
-            {/* Timeline Scroll Content */}
-            <div className="flex-1 overflow-y-auto p-4 cell-scroll space-y-4">
-              {selectedDateTasks.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-xs text-on-surface-variant/50 border-2 border-dashed border-border rounded-xl">
-                  해당 날짜에 등록된 일정이 없습니다.
+          const getTaskRange = (t: Task) => {
+            let startHour = 0;
+            let endHour = 23;
+            const start = t.startDate ? parseISO(t.startDate) : parseISO(t.deadline);
+            const end = t.endDate ? parseISO(t.endDate) : parseISO(t.deadline);
+            
+            if (isSameDay(start, selectedDate)) startHour = start.getHours();
+            if (isSameDay(end, selectedDate)) endHour = end.getHours();
+            
+            return { startHour, endHour };
+          };
+
+          const sortedTimedTasks = [...timedTasks].sort((a, b) => {
+            const rangeA = getTaskRange(a);
+            const rangeB = getTaskRange(b);
+            const durA = rangeA.endHour - rangeA.startHour;
+            const durB = rangeB.endHour - rangeB.startHour;
+            if (durA !== durB) return durB - durA;
+            return rangeA.startHour - rangeB.startHour;
+          });
+
+          const taskCols = new Map<string, number>();
+          sortedTimedTasks.forEach((task) => {
+            const range = getTaskRange(task);
+            const occupiedCols = new Set<number>();
+            sortedTimedTasks.forEach((other) => {
+              if (other.id === task.id) return;
+              if (taskCols.has(other.id)) {
+                const otherRange = getTaskRange(other);
+                const overlap =
+                  Math.max(range.startHour, otherRange.startHour) <=
+                  Math.min(range.endHour, otherRange.endHour);
+                if (overlap) {
+                  occupiedCols.add(taskCols.get(other.id)!);
+                }
+              }
+            });
+            let col = 0;
+            while (occupiedCols.has(col) && col < 3) {
+              col++;
+            }
+            taskCols.set(task.id, col);
+          });
+
+          return (
+            <div className="w-5/12 border-l border-border bg-surface flex flex-col h-full animate-in slide-in-from-right duration-300">
+              {/* Timeline Header */}
+              <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface">
+                <h3 className="font-headline font-bold text-sm text-primary flex items-center gap-1.5">
+                  <CalendarIcon className="w-4 h-4" />
+                  {format(selectedDate, "M월 d일 (E) 일정", { locale: ko })}
+                </h3>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors"
+                  title="닫기"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Compact fixed All Day Section at top */}
+              {allDayTasks.length > 0 && (
+                <div className="px-4 py-2.5 border-b border-border flex-shrink-0 bg-surface-variant/20 flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto cell-scroll">
+                  {allDayTasks.map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => onEditTask(t)}
+                      style={{ backgroundColor: t.color || "#4a7c59" }}
+                      className="text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-sm cursor-pointer hover:opacity-90 transition-opacity truncate max-w-[140px] border border-black/10"
+                      title={t.title}
+                    >
+                      {t.title}
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  {/* All Day Section */}
-                  {allDayTasks.length > 0 && (
-                    <div className="p-3 bg-surface-variant/40 rounded-xl border border-border/50">
-                      <span className="text-[10px] font-bold text-on-surface-variant block mb-2">하루 종일</span>
-                      <div className="space-y-1.5">
-                        {allDayTasks.map((t) => (
+              )}
+
+              {/* Hourly Timeline Section (Scrollable) */}
+              <div className="flex-1 overflow-y-auto p-4 cell-scroll">
+                {selectedDateTasks.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-xs text-on-surface-variant/50 border-2 border-dashed border-border rounded-xl">
+                    해당 날짜에 등록된 일정이 없습니다.
+                  </div>
+                ) : (
+                  <div className="relative h-[1200px] select-none">
+                    {/* Hour Grid Lines */}
+                    {hours.map((h) => (
+                      <div
+                        key={h}
+                        style={{ top: `${h * 50}px` }}
+                        className="absolute left-16 right-0 border-t border-dashed border-border/40 h-[50px] flex items-start"
+                      >
+                        {/* Time Label on the left - Offset to avoid overlapping grid lines */}
+                        <span className="absolute right-full mr-3 text-[10px] font-bold text-on-surface-variant/60 -translate-y-1/2">
+                          {h < 12 ? `오전 ${h === 0 ? 12 : h}시` : `오후 ${h === 12 ? 12 : h - 12}시`}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Timeline Event Blocks */}
+                    <div className="absolute left-16 right-0 top-0 bottom-0">
+                      {sortedTimedTasks.map((t) => {
+                        const range = getTaskRange(t);
+                        const col = taskCols.get(t.id) || 0;
+                        const top = range.startHour * 50;
+                        const height = (range.endHour - range.startHour + 1) * 50;
+                        const left = col * 25;
+                        const width = 23; // leave 2% spacing
+
+                        const startTime = t.startDate ? format(parseISO(t.startDate), "HH:mm") : "";
+                        const endTime = t.endDate ? format(parseISO(t.endDate), "HH:mm") : "";
+                        const timeRange = startTime && endTime ? `${startTime} - ${endTime}` : format(parseISO(t.deadline), "HH:mm");
+
+                        return (
                           <div
                             key={t.id}
                             onClick={() => onEditTask(t)}
-                            style={{ backgroundColor: t.color || "#4a7c59" }}
-                            className="text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity truncate"
+                            style={{
+                              backgroundColor: t.color || "#4a7c59",
+                              top: `${top + 2}px`,
+                              height: `${height - 4}px`,
+                              left: `${left}%`,
+                              width: `${width}%`,
+                            }}
+                            className="absolute text-white text-[10px] font-bold p-2 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-all hover:scale-[1.01] flex flex-col justify-between overflow-hidden border border-black/10"
+                            title={`${t.title} (${timeRange})`}
                           >
-                            {t.title}
+                            <span className="line-clamp-2 leading-snug break-all">{t.title}</span>
+                            <span className="text-[9px] opacity-90 font-normal shrink-0 bg-white/20 px-1 py-0.5 rounded-md mt-1 self-start">
+                              {timeRange}
+                            </span>
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
-
-                  {/* Hourly timeline list */}
-                  <div className="relative border-l border-border/60 ml-12 pl-4 space-y-4 py-2">
-                    {hours.map((h) => {
-                      const hourTasks = getTasksForHour(h);
-                      const timeLabel = h < 12 ? `오전 ${h === 0 ? 12 : h}시` : `오후 ${h === 12 ? 12 : h - 12}시`;
-                      
-                      return (
-                        <div key={h} className="relative min-h-[44px] flex flex-col justify-center">
-                          {/* Hour tag */}
-                          <div className="absolute right-full mr-4 text-[10px] font-bold text-on-surface-variant/60 -translate-y-1/2 top-1/2 w-12 text-right">
-                            {timeLabel}
-                          </div>
-                          
-                          {/* Dotted horizontal line */}
-                          <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20 -translate-y-1/2" />
-                          
-                          {/* Tasks under this hour */}
-                          <div className="relative z-10 space-y-1.5">
-                            {hourTasks.map((t) => {
-                              const startTime = t.startDate ? format(parseISO(t.startDate), "HH:mm") : "";
-                              const endTime = t.endDate ? format(parseISO(t.endDate), "HH:mm") : "";
-                              const timeRange = startTime && endTime ? `${startTime} - ${endTime}` : format(parseISO(t.deadline), "HH:mm");
-
-                              return (
-                                <div
-                                  key={t.id}
-                                  onClick={() => onEditTask(t)}
-                                  style={{ backgroundColor: t.color || "#4a7c59" }}
-                                  className="text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-all hover:scale-[1.01] flex items-center justify-between"
-                                >
-                                  <span className="truncate mr-2">{t.title}</span>
-                                  <span className="text-[9px] opacity-90 font-normal shrink-0 bg-white/20 px-1.5 py-0.5 rounded">
-                                    {timeRange}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
-                </>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
