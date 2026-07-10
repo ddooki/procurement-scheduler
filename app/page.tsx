@@ -2324,7 +2324,7 @@ function FullCalendar({
       {/* Main Grid & Timeline Section */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
         {/* Left Side: Calendar Grid */}
-        <div className="flex flex-col h-full flex-1 min-w-[600px] overflow-x-auto transition-all duration-300">
+        <div className="flex flex-col h-full flex-1 min-w-[600px] overflow-x-auto">
           <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-2 text-center text-sm font-bold mb-2 p-2 flex-shrink-0`}>
             {!hideWeekends && <div className="text-red-500">일</div>}
             <div className="text-on-surface-variant">월</div>
