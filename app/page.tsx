@@ -414,14 +414,25 @@ export default function App() {
       if (newTask.recurrence && newTask.recurrence !== "NONE") {
         let recurrenceCount = 5; // Generate 5 iterations into the future
         let lastDate = parseISO(newTask.deadline);
+        let originalStart = newTask.startDate ? parseISO(newTask.startDate) : null;
+        let originalEnd = newTask.endDate ? parseISO(newTask.endDate) : null;
 
         for (let i = 1; i <= recurrenceCount; i++) {
           let nextDate: Date;
-          if (newTask.recurrence === "WEEKLY") nextDate = addWeeks(lastDate, i);
-          else if (newTask.recurrence === "MONTHLY") nextDate = addMonths(lastDate, i);
-          else if (newTask.recurrence === "QUARTERLY") nextDate = addMonths(lastDate, i * 3);
-          else if (newTask.recurrence === "SEMI_ANNUALLY") nextDate = addMonths(lastDate, i * 6);
-          else nextDate = addYears(lastDate, i); // ANNUALLY
+          let nextStart: Date | undefined;
+          let nextEnd: Date | undefined;
+
+          const getNextDate = (d: Date) => {
+            if (newTask.recurrence === "WEEKLY") return addWeeks(d, i);
+            if (newTask.recurrence === "MONTHLY") return addMonths(d, i);
+            if (newTask.recurrence === "QUARTERLY") return addMonths(d, i * 3);
+            if (newTask.recurrence === "SEMI_ANNUALLY") return addMonths(d, i * 6);
+            return addYears(d, i); // ANNUALLY
+          };
+
+          nextDate = getNextDate(lastDate);
+          if (originalStart) nextStart = getNextDate(originalStart);
+          if (originalEnd) nextEnd = getNextDate(originalEnd);
 
           const recId = crypto.randomUUID();
           recurrentTasks.push({
@@ -429,6 +440,8 @@ export default function App() {
             id: recId,
             parentId: newTask.id,
             deadline: nextDate.toISOString(),
+            startDate: nextStart ? nextStart.toISOString() : undefined,
+            endDate: nextEnd ? nextEnd.toISOString() : undefined,
             status: "TODO",
             createdAt: new Date().toISOString(),
             completedAt: undefined,
