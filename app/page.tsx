@@ -1291,7 +1291,7 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden h-[630px] flex flex-col border border-border"
+              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden h-[800px] flex flex-col border border-border"
             >
               <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold">
@@ -1877,7 +1877,7 @@ function TaskForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 text-sm">
+    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-hidden flex-1 text-sm">
       <div className="flex gap-4 items-center">
         <div className="flex-1">
           <label className="block text-xs font-bold mb-1">일정 제목</label>
