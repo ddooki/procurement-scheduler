@@ -171,7 +171,6 @@ export default function App() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "VERCEL_KV">("LOCAL");
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | null>(null);
 
   // Deletion Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -907,7 +906,7 @@ export default function App() {
                     <p className="text-on-surface-variant">월별 전체 일정을 확인하세요.</p>
                   </div>
                   <div className="flex-1 overflow-hidden bg-surface rounded-2xl border border-border shadow-sm flex flex-col p-4 md:p-6">
-                    <FullCalendar tasks={tasks} onEditTask={openEditTaskModal} onSelectedDateChange={setCalendarSelectedDate} />
+                    <FullCalendar tasks={tasks} onEditTask={openEditTaskModal} />
                   </div>
                 </motion.div>
               )}
@@ -2098,20 +2097,12 @@ function TaskForm({
 function FullCalendar({
   tasks,
   onEditTask,
-  onSelectedDateChange,
 }: {
   tasks: Task[];
   onEditTask: (t: Task) => void;
-  onSelectedDateChange?: (date: Date | null) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  useEffect(() => {
-    if (onSelectedDateChange) {
-      onSelectedDateChange(selectedDate);
-    }
-  }, [selectedDate, onSelectedDateChange]);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorMode, setSelectorMode] = useState<"month" | "year">("month");
   const [yearPageStart, setYearPageStart] = useState(() => {
@@ -2430,15 +2421,15 @@ function FullCalendar({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setSelectedDate(null)}
-                className="absolute inset-0 bg-black/25 backdrop-blur-[1.5px] z-20"
+                className="absolute inset-0 bg-black/20 z-20 will-change-[opacity]"
               />
               {/* Drawer */}
               <motion.div
                 initial={{ x: "100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 220 }}
-                className="absolute right-0 top-0 bottom-0 w-full sm:w-[380px] md:w-[420px] bg-surface z-30 border-l border-border flex flex-col shadow-2xl h-full"
+                transition={{ type: "tween", ease: "easeOut", duration: 0.25 }}
+                className="absolute right-0 top-0 bottom-0 w-full sm:w-[380px] md:w-[420px] bg-surface z-30 border-l border-border flex flex-col shadow-2xl h-full will-change-transform"
               >
                 {/* Header */}
                 <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface">
