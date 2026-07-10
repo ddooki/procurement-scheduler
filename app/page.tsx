@@ -919,7 +919,23 @@ export default function App() {
                     <p className="text-on-surface-variant">월별 전체 일정을 확인하세요.</p>
                   </div>
                   <div className="flex-1 overflow-hidden bg-surface rounded-2xl border border-border shadow-sm flex flex-col p-4 md:p-6">
-                    <FullCalendar tasks={tasks} onEditTask={openEditTaskModal} />
+                    <FullCalendar
+                      tasks={tasks}
+                      onEditTask={openEditTaskModal}
+                      onAddTask={(date) => {
+                        setEditingTask({
+                          id: "",
+                          title: "",
+                          type: "GENERAL",
+                          deadline: date.toISOString(),
+                          status: "TODO",
+                          startDate: date.toISOString(),
+                          endDate: date.toISOString(),
+                          createdAt: "",
+                        });
+                        setIsTaskModalOpen(true);
+                      }}
+                    />
                   </div>
                 </motion.div>
               )}
@@ -1275,25 +1291,25 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col"
+              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden h-[630px] flex flex-col border border-border"
             >
               <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold">
-                  {editingTask ? "일정 수정" : "새 일정 등록"}
+                  {editingTask && editingTask.id ? "일정 수정" : "새 일정 등록"}
                 </h2>
                 <button
                   onClick={() => setIsTaskModalOpen(false)}
-                  className="p-2 hover:bg-surface-variant rounded-full text-on-surface-variant"
+                  className="p-2 hover:bg-surface-variant rounded-full text-on-surface-variant flex items-center justify-center"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <TaskForm
-                initialData={editingTask}
+                initialData={editingTask && editingTask.id ? editingTask : null}
                 tasks={tasks}
                 onSubmit={handleSaveTask}
                 onCancel={() => setIsTaskModalOpen(false)}
-                onDelete={editingTask ? () => handleDeleteTask(editingTask.id) : undefined}
+                onDelete={editingTask && editingTask.id ? () => handleDeleteTask(editingTask.id) : undefined}
               />
             </motion.div>
           </div>
@@ -1861,7 +1877,7 @@ function TaskForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5 overflow-y-auto max-h-[85vh] hide-scrollbar text-sm">
+    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 text-sm">
       <div className="flex gap-4 items-center">
         <div className="flex-1">
           <label className="block text-xs font-bold mb-1">일정 제목</label>
@@ -2078,10 +2094,10 @@ function TaskForm({
         />
       </div>
 
-      <div className="flex gap-3 mt-2 pt-3 border-t border-border flex-shrink-0">
+      <div className="flex gap-3 mt-2 pt-3 border-t border-border flex-shrink-0 h-[52px] items-center">
         {onDelete &&
           (showDeleteConfirm ? (
-            <div className="flex items-center gap-3 mr-auto bg-error-container/30 px-3 py-1.5 rounded-xl border border-error/50">
+            <div className="flex items-center gap-3 mr-auto bg-error-container/30 px-3 h-[42px] rounded-xl border border-error/50 w-[160px] justify-center">
               <span className="text-xs font-bold text-error">삭제?</span>
               <button type="button" onClick={onDelete} className="text-error hover:underline text-sm font-bold px-1">네</button>
               <span className="text-error/30">|</span>
@@ -2091,15 +2107,16 @@ function TaskForm({
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="py-2.5 px-3.5 rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors mr-auto"
+              className="h-[42px] w-[160px] rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors mr-auto flex items-center justify-center gap-1.5"
             >
               <Trash2 className="w-4.5 h-4.5" />
+              <span className="text-xs font-bold">삭제하기</span>
             </button>
           ))}
-        <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
+        <button type="button" onClick={onCancel} className="flex-1 h-[42px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
           취소
         </button>
-        <button type="submit" className="flex-1 py-2 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
+        <button type="submit" className="flex-1 h-[42px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
           {initialData ? "저장하기" : "등록하기"}
         </button>
       </div>
@@ -2110,9 +2127,11 @@ function TaskForm({
 function FullCalendar({
   tasks,
   onEditTask,
+  onAddTask,
 }: {
   tasks: Task[];
   onEditTask: (t: Task) => void;
+  onAddTask: (date: Date) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -2450,13 +2469,24 @@ function FullCalendar({
                     <CalendarIcon className="w-5 h-5" />
                     {format(selectedDate, "M월 d일 (E) 일정", { locale: ko })}
                   </h3>
-                  <button
-                    onClick={() => setSelectedDate(null)}
-                    className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors"
-                    title="닫기"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        onAddTask(selectedDate);
+                      }}
+                      className="p-1.5 hover:bg-primary-container/30 hover:text-primary rounded-full text-on-surface-variant transition-colors flex items-center justify-center"
+                      title="일정 추가"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors flex items-center justify-center"
+                      title="닫기"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Agenda List Content */}
