@@ -680,11 +680,7 @@ export default function App() {
 
         {/* Dynamic Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-6">
-          <div className={`mx-auto h-full flex flex-col transition-all duration-300 w-full ${
-            activeTab === "calendar"
-              ? (calendarSelectedDate ? "max-w-[1400px]" : "max-w-5xl")
-              : "max-w-7xl"
-          }`}>
+          <div className="max-w-7xl mx-auto h-full flex flex-col">
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
                 <motion.div
@@ -904,7 +900,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="h-full flex flex-col pb-6"
+                  className="h-full flex flex-col pb-6 max-w-6xl mx-auto w-full"
                 >
                   <div className="mb-6 flex-shrink-0">
                     <h2 className="font-headline text-3xl font-bold mb-1">캘린더</h2>
@@ -2422,8 +2418,9 @@ function FullCalendar({
             })}
           </div>
         </div>
+      </div>
 
-        {/* Option A: Slide-over Drawer with Backdrop */}
+      {/* Option A: Slide-over Drawer with Backdrop */}
         <AnimatePresence>
           {selectedDate && (
             <>
@@ -2514,7 +2511,6 @@ function FullCalendar({
             </>
           )}
         </AnimatePresence>
-      </div>
     </div>
   );
 }
