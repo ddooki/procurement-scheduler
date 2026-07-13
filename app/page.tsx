@@ -708,8 +708,8 @@ export default function App() {
         </header>
 
         {/* Dynamic Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6">
-          <div className="max-w-7xl mx-auto h-full flex flex-col">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6 cell-scroll">
+          <div className="max-w-7xl mx-auto h-full lg:h-full flex flex-col">
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
                 <motion.div
@@ -717,7 +717,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex-1 flex flex-col gap-4 sm:gap-6 h-full pb-20 sm:pb-8 pt-2"
+                  className="flex-1 flex flex-col gap-4 sm:gap-6 h-auto lg:h-full pb-24 sm:pb-8 pt-2"
                 >
                   {/* Stats Row */}
                   <div className="grid grid-cols-3 gap-2.5 sm:gap-6 shrink-0">
@@ -752,9 +752,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:min-h-0">
                     {/* Main Schedule List */}
-                    <div className="lg:col-span-2 bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex flex-col min-h-[350px] sm:min-h-0 sm:overflow-hidden">
+                    <div className="lg:col-span-2 bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex flex-col min-h-[350px] lg:min-h-0 lg:overflow-hidden">
                       <h3 className="font-headline text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 text-on-surface">
                         <CalendarIcon className="w-5 h-5 sm:w-6 h-6 text-primary" />
                         전체 일정 타임라인
@@ -810,9 +810,9 @@ export default function App() {
                     </div>
 
                     {/* Right Column: Today & Upcoming */}
-                    <div className="flex flex-col gap-6 sm:overflow-hidden min-h-0">
+                    <div className="flex flex-col gap-6 lg:overflow-hidden lg:min-h-0">
                       {/* Today's Tasks */}
-                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] sm:min-h-0 sm:overflow-hidden">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] lg:min-h-0 lg:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-primary">
                           <CheckCircle className="w-5 h-5" />
                           오늘의 할 일
@@ -822,7 +822,7 @@ export default function App() {
                             오늘 예정된 일정이 없습니다.
                           </div>
                         ) : (
-                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] sm:max-h-none flex-1">
+                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] lg:max-h-none flex-1">
                             {todayTasks.map((task) => (
                               <div
                                 key={task.id}
@@ -841,7 +841,7 @@ export default function App() {
                       </div>
 
                       {/* Upcoming Deadlines */}
-                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] sm:min-h-0 sm:overflow-hidden">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] lg:min-h-0 lg:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-tertiary">
                           <AlertTriangle className="w-5 h-5" />
                           다가오는 마감일
@@ -851,7 +851,7 @@ export default function App() {
                             다가오는 마감이 없습니다.
                           </div>
                         ) : (
-                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] sm:max-h-none flex-1">
+                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] lg:max-h-none flex-1">
                             {upcomingDeadlines.map((task) => {
                               const date = parseISO(task.deadline);
                               const isTom = isTomorrow(date);
