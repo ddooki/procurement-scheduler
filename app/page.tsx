@@ -50,8 +50,11 @@ import {
   isSameDay,
   addDays,
   addWeeks,
+  subWeeks,
   addYears,
   isWithinInterval,
+  startOfWeek,
+  endOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
@@ -1291,7 +1294,7 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden h-[725px] flex flex-col border border-border"
+              className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden h-[92vh] sm:h-[725px] flex flex-col border border-border"
             >
               <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold">
@@ -1908,7 +1911,7 @@ function TaskForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-hidden flex-1 text-sm">
+    <form onSubmit={handleSubmit} className="p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 overflow-y-auto flex-1 text-sm max-w-full cell-scroll">
       <div className="flex gap-4 items-center">
         <div className="flex-1">
           <label className="block text-xs font-bold mb-1">일정 제목</label>
@@ -1917,19 +1920,19 @@ function TaskForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="프로젝트 A 입찰 서류 제출..."
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
             required
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold mb-1">유형</label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as TaskType)}
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
           >
             <option value="MEETING">미팅 (Meeting)</option>
             <option value="BID">입찰 (Bid)</option>
@@ -1943,7 +1946,7 @@ function TaskForm({
           <select
             value={recurrence}
             onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
           >
             <option value="NONE">반복 없음</option>
             <option value="WEEKLY">매주 반복</option>
@@ -1956,13 +1959,13 @@ function TaskForm({
 
         <div>
           <label className="block text-xs font-bold mb-1">색상 지정</label>
-          <div className="grid grid-cols-7 gap-1 py-1">
+          <div className="flex flex-wrap gap-1 py-1">
             {TASK_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
+                className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
                   color === c ? "scale-110 ring-2 ring-on-surface" : "hover:scale-105 opacity-80"
                 }`}
                 style={{ backgroundColor: c }}
@@ -1974,8 +1977,8 @@ function TaskForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 p-3 bg-surface-variant/30 border border-border/60 rounded-xl">
-        <div className="col-span-2 flex items-center justify-between mb-1.5 border-b border-border/40 pb-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2 sm:p-3 bg-surface-variant/30 border border-border/60 rounded-xl">
+        <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5 border-b border-border/40 pb-1.5">
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -2081,13 +2084,13 @@ function TaskForm({
         <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
           <GitMerge className="w-3.5 h-3.5 text-primary" /> 연쇄 업무 설정
         </span>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-bold text-on-surface-variant mb-0.5">선행 업무 (이전 단계)</label>
             <select
               value={prevTaskId}
               onChange={(e) => setPrevTaskId(e.target.value)}
-              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none"
+              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none min-h-[40px] sm:min-h-[auto]"
             >
               <option value="">없음 (시작 업무)</option>
               {tasks
@@ -2102,7 +2105,7 @@ function TaskForm({
             <select
               value={nextTaskId}
               onChange={(e) => setNextTaskId(e.target.value)}
-              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none"
+              className="w-full px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none min-h-[40px] sm:min-h-[auto]"
             >
               <option value="">없음 (종료 업무)</option>
               {tasks
@@ -2121,35 +2124,37 @@ function TaskForm({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           placeholder="관련 자료 링크나 참고 사항을 적어주세요."
-          className="w-full px-3 py-1.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs min-h-[50px] resize-none"
+          className="w-full px-3 py-1.5 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs min-h-[60px] resize-none"
         />
       </div>
 
-      <div className="flex gap-3 mt-2 pt-3 border-t border-border flex-shrink-0 h-[52px] items-center">
+      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mt-2 pt-3 border-t border-border flex-shrink-0 items-stretch sm:items-center">
         {onDelete &&
           (showDeleteConfirm ? (
-            <div className="flex items-center gap-3 mr-auto bg-error-container/30 px-3 h-[42px] rounded-xl border border-error/50 w-[160px] justify-center">
-              <span className="text-xs font-bold text-error">삭제?</span>
-              <button type="button" onClick={onDelete} className="text-error hover:underline text-sm font-bold px-1">네</button>
+            <div className="flex items-center gap-3 bg-error-container/30 px-3 h-[48px] rounded-xl border border-error/50 w-full sm:w-[160px] justify-center">
+              <span className="text-xs font-bold text-error">삭제하시겠습니까?</span>
+              <button type="button" onClick={onDelete} className="text-error hover:underline text-sm font-bold px-1 min-h-[40px] flex items-center justify-center">네</button>
               <span className="text-error/30">|</span>
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="text-on-surface-variant hover:underline text-sm px-1">아니오</button>
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="text-on-surface-variant hover:underline text-sm px-1 min-h-[40px] flex items-center justify-center">아니오</button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="h-[42px] w-[160px] rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors mr-auto flex items-center justify-center gap-1.5"
+              className="h-[48px] w-full sm:w-[160px] rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors flex items-center justify-center gap-1.5"
             >
               <Trash2 className="w-4.5 h-4.5" />
               <span className="text-xs font-bold">삭제하기</span>
             </button>
           ))}
-        <button type="button" onClick={onCancel} className="flex-1 h-[42px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
-          취소
-        </button>
-        <button type="submit" className="flex-1 h-[42px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
-          {initialData ? "저장하기" : "등록하기"}
-        </button>
+        <div className="flex gap-2 w-full flex-1">
+          <button type="button" onClick={onCancel} className="flex-1 h-[48px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
+            취소
+          </button>
+          <button type="submit" className="flex-1 h-[48px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
+            {initialData ? "저장하기" : "등록하기"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -2168,12 +2173,28 @@ function FullCalendar({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorMode, setSelectorMode] = useState<"month" | "year">("month");
+  const [calendarViewMode, setCalendarViewMode] = useState<"grid" | "list">("grid");
   const [yearPageStart, setYearPageStart] = useState(() => {
     const currentYear = new Date().getFullYear();
     return 2020 + Math.floor((currentYear - 2020) / 12) * 12;
   });
 
   const [hideWeekends, setHideWeekends] = useState(false);
+
+  // Auto-switch view modes based on window size on mount and resize
+  useEffect(() => {
+    const checkWidth = () => {
+      if (window.innerWidth < 480) {
+        setCalendarViewMode("list");
+      } else {
+        setCalendarViewMode("grid");
+      }
+    };
+    checkWidth();
+    window.addEventListener("resize", checkWidth);
+    return () => window.removeEventListener("resize", checkWidth);
+  }, []);
+
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -2200,9 +2221,6 @@ function FullCalendar({
   }
   const paddingDays = Array.from({ length: paddingCount }).map((_, i) => i);
 
-  // Time slots for 24 hours
-  const hours = Array.from({ length: 24 }).map((_, i) => i);
-
   // Get tasks scheduled on selectedDate
   const selectedDateTasks = selectedDate
     ? tasks.filter((t) => {
@@ -2216,52 +2234,22 @@ function FullCalendar({
       })
     : [];
 
-  const allDayTasks = selectedDateTasks.filter((t) => {
-    if (t.startDate && t.endDate) {
-      const start = parseISO(t.startDate);
-      const end = parseISO(t.endDate);
-      return (
-        format(start, "HH:mm") === "00:00" &&
-        (format(end, "HH:mm") === "23:59" || format(end, "HH:mm") === "00:00")
-      );
-    }
-    return false;
-  });
-
-  const getTasksForHour = (hour: number) => {
-    return selectedDateTasks.filter((t) => {
-      // Exclude all day tasks
-      if (t.startDate && t.endDate) {
-        const start = parseISO(t.startDate);
-        const end = parseISO(t.endDate);
-        if (
-          format(start, "HH:mm") === "00:00" &&
-          (format(end, "HH:mm") === "23:59" || format(end, "HH:mm") === "00:00")
-        ) {
-          return false;
-        }
-      }
-      const date = t.startDate ? parseISO(t.startDate) : parseISO(t.deadline);
-      return date.getHours() === hour;
-    });
-  };
-
   return (
-    <div className="h-full flex flex-col bg-surface-variant/30 rounded-xl overflow-hidden">
+    <div className="h-full flex flex-col bg-surface-variant/30 rounded-xl overflow-hidden p-2 sm:p-4">
       {/* Calendar Header */}
-      <div className="relative flex items-center justify-between mb-4 p-2 flex-shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="relative flex items-center justify-between mb-3 p-1 flex-shrink-0 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
               setShowSelector(!showSelector);
               setSelectorMode("month");
             }}
-            className="font-headline text-2xl font-bold hover:text-primary transition-colors flex items-center gap-1 p-2 rounded-lg hover:bg-surface-variant"
+            className="font-headline text-lg sm:text-2xl font-bold hover:text-primary transition-colors flex items-center gap-0.5 p-1 rounded-lg hover:bg-surface-variant"
           >
             {format(currentDate, "yyyy년 M월", { locale: ko })}
-            <ChevronDown className="w-6 h-6" />
+            <ChevronDown className="w-4 h-4 sm:w-6 h-6" />
           </button>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             <button
               onClick={() => {
                 setCurrentDate(subMonths(currentDate, 1));
@@ -2270,7 +2258,7 @@ function FullCalendar({
               className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
               title="이전 달"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => {
@@ -2280,21 +2268,43 @@ function FullCalendar({
               className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
               title="다음 달"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        <button
-          onClick={() => setHideWeekends(!hideWeekends)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-            hideWeekends
-              ? "bg-tertiary text-on-tertiary border-tertiary shadow-sm"
-              : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
-          }`}
-        >
-          {hideWeekends ? "주말 표시하기" : "주말 숨기기"}
-        </button>
+        <div className="flex items-center gap-1.5">
+          {/* View Toggle Mode */}
+          <div className="flex bg-surface border border-border rounded-lg p-0.5 shadow-sm">
+            <button
+              onClick={() => setCalendarViewMode("grid")}
+              className={`px-2 py-1 rounded text-xs font-bold transition-all ${
+                calendarViewMode === "grid" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-variant"
+              }`}
+            >
+              달력
+            </button>
+            <button
+              onClick={() => setCalendarViewMode("list")}
+              className={`px-2 py-1 rounded text-xs font-bold transition-all ${
+                calendarViewMode === "list" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-variant"
+              }`}
+            >
+              일정목록
+            </button>
+          </div>
+
+          <button
+            onClick={() => setHideWeekends(!hideWeekends)}
+            className={`px-2 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border ${
+              hideWeekends
+                ? "bg-tertiary text-on-tertiary border-tertiary shadow-sm"
+                : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
+            }`}
+          >
+            {hideWeekends ? "주말 표시" : "주말 숨김"}
+          </button>
+        </div>
 
         {/* Date Selector Popover */}
         <AnimatePresence>
@@ -2386,25 +2396,111 @@ function FullCalendar({
 
       {/* Main Grid & Timeline Section */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
-        {/* Left Side: Calendar Grid */}
-        <div className="flex flex-col h-full flex-1 min-w-[600px] overflow-x-auto">
-          <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-2 text-center text-sm font-bold mb-2 p-2 flex-shrink-0`}>
-            {!hideWeekends && <div className="text-red-500">일</div>}
-            <div className="text-on-surface-variant">월</div>
-            <div className="text-on-surface-variant">화</div>
-            <div className="text-on-surface-variant">수</div>
-            <div className="text-on-surface-variant">목</div>
-            <div className="text-on-surface-variant">금</div>
-            {!hideWeekends && <div className="text-blue-500">토</div>}
-          </div>
+        {calendarViewMode === "grid" ? (
+          /* Left Side: Calendar Grid */
+          <div className="flex flex-col h-full flex-1 min-w-[300px] sm:min-w-[600px] overflow-x-auto">
+            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 text-center text-xs sm:text-sm font-bold mb-2 p-1 flex-shrink-0`}>
+              {!hideWeekends && <div className="text-red-500">일</div>}
+              <div className="text-on-surface-variant">월</div>
+              <div className="text-on-surface-variant">화</div>
+              <div className="text-on-surface-variant">수</div>
+              <div className="text-on-surface-variant">목</div>
+              <div className="text-on-surface-variant">금</div>
+              {!hideWeekends && <div className="text-blue-500">토</div>}
+            </div>
 
-          <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-2 flex-1 auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-2 cell-scroll`}>
-            {paddingDays.map((i) => (
-              <div key={`pad-${i}`} className="p-2 rounded-xl bg-surface/50" />
-            ))}
+            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 flex-1 auto-rows-[minmax(60px,_1fr)] sm:auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-1 cell-scroll`}>
+              {paddingDays.map((i) => (
+                <div key={`pad-${i}`} className="p-1 rounded-lg bg-surface/30" />
+              ))}
+              {daysToShow.map((day) => {
+                const isT = isToday(day);
+                const isSel = selectedDate && isSameDay(day, selectedDate);
+                const dayOfWeek = getDay(day);
+                const isSun = dayOfWeek === 0;
+                const isSat = dayOfWeek === 6;
+                const dayTasks = tasks.filter((t) => {
+                  if (t.startDate && t.endDate) {
+                    const start = startOfDay(parseISO(t.startDate));
+                    const end = startOfDay(parseISO(t.endDate));
+                    const target = startOfDay(day);
+                    return isWithinInterval(target, { start, end });
+                  }
+                  return isSameDay(parseISO(t.deadline), day);
+                });
+
+                dayTasks.sort((a, b) => {
+                  const getDuration = (t: Task) => {
+                    if (t.startDate && t.endDate) {
+                      const start = startOfDay(parseISO(t.startDate));
+                      const end = startOfDay(parseISO(t.endDate));
+                      return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                    }
+                    return 1;
+                  };
+                  const durA = getDuration(a);
+                  const durB = getDuration(b);
+                  if (durA !== durB) {
+                    return durB - durA;
+                  }
+                  return a.title.localeCompare(b.title);
+                });
+
+                return (
+                  <div
+                    key={day.toString()}
+                    onClick={() => setSelectedDate(isSel ? null : day)}
+                    className={`p-1 sm:p-2 rounded-xl bg-surface border ${
+                      isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
+                    } flex flex-col min-h-[60px] sm:min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
+                  >
+                    <div className={`text-xs sm:text-sm font-bold mb-1 flex items-center justify-between ${
+                      isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
+                    }`}>
+                      <span>{format(day, "d")}</span>
+                      {isT && (
+                        <span className="text-[8px] font-bold px-1 py-0.2 rounded-full bg-primary text-on-primary">오늘</span>
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-1 cell-scroll hidden sm:block">
+                      {dayTasks.map((t) => (
+                        <div
+                          key={t.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditTask(t);
+                          }}
+                          style={{ backgroundColor: t.color || "#4a7c59" }}
+                          className="text-white text-[9px] font-medium px-1 py-0.5 rounded truncate leading-tight shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                          title={t.title}
+                        >
+                          <span className={t.status === "DONE" ? "line-through opacity-70" : ""}>{t.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Tiny dots indicator for mobile views */}
+                    <div className="flex flex-wrap gap-0.5 mt-auto sm:hidden">
+                      {dayTasks.slice(0, 3).map((t) => (
+                        <span
+                          key={t.id}
+                          style={{ backgroundColor: t.color || "#4a7c59" }}
+                          className="w-1.5 h-1.5 rounded-full inline-block"
+                        />
+                      ))}
+                      {dayTasks.length > 3 && (
+                        <span className="text-[7px] leading-[6px] font-bold text-on-surface-variant">+</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* List View / Timeline Mode for Z Fold 7 Cover Screen */
+          <div className="flex-1 flex flex-col overflow-y-auto px-1 space-y-3 pb-16 cell-scroll">
             {daysToShow.map((day) => {
               const isT = isToday(day);
-              const isSel = selectedDate && isSameDay(day, selectedDate);
               const dayOfWeek = getDay(day);
               const isSun = dayOfWeek === 0;
               const isSat = dayOfWeek === 6;
@@ -2418,65 +2514,74 @@ function FullCalendar({
                 return isSameDay(parseISO(t.deadline), day);
               });
 
-              dayTasks.sort((a, b) => {
-                const getDuration = (t: Task) => {
-                  if (t.startDate && t.endDate) {
-                    const start = startOfDay(parseISO(t.startDate));
-                    const end = startOfDay(parseISO(t.endDate));
-                    return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-                  }
-                  return 1;
-                };
-                const durA = getDuration(a);
-                const durB = getDuration(b);
-                if (durA !== durB) {
-                  return durB - durA;
-                }
-                return a.title.localeCompare(b.title);
-              });
+              if (dayTasks.length === 0) return null; // Only show active days in timeline view
 
               return (
-                <div
-                  key={day.toString()}
-                  onClick={() => setSelectedDate(isSel ? null : day)}
-                  className={`p-2 rounded-xl bg-surface border ${
-                    isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
-                  } flex flex-col min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
-                >
-                  <div className={`text-sm font-bold mb-1.5 flex items-center justify-between ${
-                    isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
-                  }`}>
-                    <span>{format(day, "d")}</span>
-                    {isT && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
-                    )}
+                <div key={day.toString()} className="bg-surface rounded-xl border border-border p-3 flex flex-col gap-2 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-base font-black ${isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-primary"}`}>
+                        {format(day, "M/d")}
+                      </span>
+                      <span className="text-xs font-bold text-on-surface-variant">
+                        ({format(day, "E", { locale: ko })})
+                      </span>
+                      {isT && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => onAddTask(day)}
+                      className="p-1.5 hover:bg-primary-container/30 text-primary rounded-full transition-colors flex items-center justify-center min-h-[40px] min-w-[40px]"
+                      title="이 날에 일정 추가"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 cell-scroll">
-                    {dayTasks.map((t) => (
-                      <div
-                        key={t.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditTask(t);
-                        }}
-                        style={{ backgroundColor: t.color || "#4a7c59" }}
-                        className="text-white text-[11px] font-medium px-2 py-1 rounded truncate leading-tight shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                        title={t.title}
-                      >
-                        <span className={t.status === "DONE" ? "line-through opacity-70" : ""}>{t.title}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {dayTasks.map((t) => {
+                      const startTime = t.startDate ? format(parseISO(t.startDate), "HH:mm") : "";
+                      const endTime = t.endDate ? format(parseISO(t.endDate), "HH:mm") : "";
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => onEditTask(t)}
+                          style={{ borderLeftColor: t.color || "#4a7c59" }}
+                          className="p-3 rounded-lg border border-border/60 bg-surface-variant/20 hover:bg-surface-variant/40 cursor-pointer transition-all border-l-4 flex items-center justify-between gap-2 min-h-[48px]"
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-[10px] font-bold text-on-surface-variant">
+                              {startTime ? `${startTime} ~ ${endTime}` : "종일"}
+                            </span>
+                            <h4 className={`font-bold text-xs text-on-surface truncate ${t.status === "DONE" ? "line-through opacity-50" : ""}`}>
+                              {t.title}
+                            </h4>
+                          </div>
+                          <TaskBadge type={t.type} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
+            {tasks.filter((t) => {
+              const start = startOfMonth(currentDate);
+              const end = endOfMonth(currentDate);
+              const deadline = parseISO(t.deadline);
+              return isWithinInterval(deadline, { start, end });
+            }).length === 0 && (
+              <div className="py-12 text-center text-xs text-on-surface-variant/50 border border-dashed border-border rounded-xl">
+                이 달에 등록된 일정이 없습니다.
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Option A: Slide-over Drawer with Backdrop */}
         <AnimatePresence>
-          {selectedDate && (
+          {selectedDate && calendarViewMode === "grid" && (
             <>
               {/* Backdrop */}
               <motion.div
@@ -2496,7 +2601,7 @@ function FullCalendar({
               >
                 {/* Header */}
                 <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface">
-                  <h3 className="font-headline font-bold text-base text-primary flex items-center gap-1.5">
+                  <h3 className="font-headline font-bold text-sm sm:text-base text-primary flex items-center gap-1.5">
                     <CalendarIcon className="w-5 h-5" />
                     {format(selectedDate, "M월 d일 (E) 일정", { locale: ko })}
                   </h3>
@@ -2505,14 +2610,14 @@ function FullCalendar({
                       onClick={() => {
                         onAddTask(selectedDate);
                       }}
-                      className="p-1.5 hover:bg-primary-container/30 hover:text-primary rounded-full text-on-surface-variant transition-colors flex items-center justify-center"
+                      className="p-1.5 hover:bg-primary-container/30 hover:text-primary rounded-full text-on-surface-variant transition-colors flex items-center justify-center min-h-[40px] min-w-[40px]"
                       title="일정 추가"
                     >
                       <Plus className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => setSelectedDate(null)}
-                      className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors flex items-center justify-center"
+                      className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors flex items-center justify-center min-h-[40px] min-w-[40px]"
                       title="닫기"
                     >
                       <X className="w-5 h-5" />
