@@ -720,33 +720,33 @@ export default function App() {
                   className="flex-1 flex flex-col gap-4 sm:gap-6 h-full pb-20 sm:pb-8 pt-2"
                 >
                   {/* Stats Row */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-6 shrink-0">
-                    <div className="bg-surface rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors min-w-0">
+                  <div className="grid grid-cols-3 gap-2.5 sm:gap-6 shrink-0">
+                    <div className="bg-surface rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors min-w-0">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-sm font-bold text-on-surface-variant mb-0.5 sm:mb-1 truncate">오늘의 일정</p>
-                        <h3 className="text-base sm:text-3xl font-headline font-bold text-primary truncate">{todayTasks.length}</h3>
+                        <p className="text-[11px] sm:text-sm font-bold text-on-surface-variant mb-1 sm:mb-1 truncate">오늘의 일정</p>
+                        <h3 className="text-xl sm:text-3xl font-headline font-bold text-primary truncate">{todayTasks.length}</h3>
                       </div>
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0 hidden xs:flex ml-1">
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0 ml-1">
                         <CheckCircle className="w-4 h-4 sm:w-6 h-6" />
                       </div>
                     </div>
-                    <div className="bg-surface rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-tertiary/50 transition-colors min-w-0">
+                    <div className="bg-surface rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-tertiary/50 transition-colors min-w-0">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-sm font-bold text-on-surface-variant mb-0.5 sm:mb-1 truncate">진행중 일정</p>
-                        <h3 className="text-base sm:text-3xl font-headline font-bold text-tertiary truncate">
+                        <p className="text-[11px] sm:text-sm font-bold text-on-surface-variant mb-1 sm:mb-1 truncate">진행중 일정</p>
+                        <h3 className="text-xl sm:text-3xl font-headline font-bold text-tertiary truncate">
                           {inProgressMultiDayTasks.length}
                         </h3>
                       </div>
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-tertiary-container text-tertiary flex items-center justify-center flex-shrink-0 hidden xs:flex ml-1">
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-tertiary-container text-tertiary flex items-center justify-center flex-shrink-0 ml-1">
                         <Activity className="w-4 h-4 sm:w-6 h-6" />
                       </div>
                     </div>
-                    <div className="bg-surface rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-error/50 transition-colors min-w-0">
+                    <div className="bg-surface rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-border shadow-sm flex items-center justify-between hover:border-error/50 transition-colors min-w-0">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-sm font-bold text-on-surface-variant mb-0.5 sm:mb-1 truncate">마감 예정</p>
-                        <h3 className="text-base sm:text-3xl font-headline font-bold text-error truncate">{upcomingDeadlines.length}</h3>
+                        <p className="text-[11px] sm:text-sm font-bold text-on-surface-variant mb-1 sm:mb-1 truncate">마감 예정</p>
+                        <h3 className="text-xl sm:text-3xl font-headline font-bold text-error truncate">{upcomingDeadlines.length}</h3>
                       </div>
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-error-container text-error flex items-center justify-center flex-shrink-0 hidden xs:flex ml-1">
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-error-container text-error flex items-center justify-center flex-shrink-0 ml-1">
                         <AlertTriangle className="w-4 h-4 sm:w-6 h-6" />
                       </div>
                     </div>
@@ -812,13 +812,13 @@ export default function App() {
                     {/* Right Column: Today & Upcoming */}
                     <div className="flex flex-col gap-6 sm:overflow-hidden min-h-0">
                       {/* Today's Tasks */}
-                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-0 sm:overflow-hidden">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] sm:min-h-0 sm:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-primary">
                           <CheckCircle className="w-5 h-5" />
                           오늘의 할 일
                         </h3>
                         {todayTasks.length === 0 ? (
-                          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl min-h-[100px]">
+                          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl min-h-[120px]">
                             오늘 예정된 일정이 없습니다.
                           </div>
                         ) : (
@@ -841,7 +841,7 @@ export default function App() {
                       </div>
 
                       {/* Upcoming Deadlines */}
-                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-0 sm:overflow-hidden">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] sm:min-h-0 sm:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-tertiary">
                           <AlertTriangle className="w-5 h-5" />
                           다가오는 마감일
