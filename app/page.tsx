@@ -2522,7 +2522,9 @@ function FullCalendar({
                 return (
                   <div
                     key={day.toString()}
-                    onClick={() => onSelectDate(isSel ? null : day)}
+                    onClick={() => {
+                      onSelectDate(isSel ? null : day);
+                    }}
                     className={`p-1 sm:p-2 rounded-xl bg-surface border ${
                       isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
                     } flex flex-col min-h-[60px] sm:min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
@@ -2587,12 +2589,18 @@ function FullCalendar({
                 return isSameDay(parseISO(t.deadline), day);
               });
 
-              if (dayTasks.length === 0) return null; // Only show active days in timeline view
+              const isSel = selectedDate && isSameDay(day, selectedDate);
 
               return (
-                <div key={day.toString()} className="bg-surface rounded-xl border border-border p-3 flex flex-col gap-2 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-border/50 pb-1.5">
-                    <div className="flex items-center gap-2">
+                <div
+                  key={day.toString()}
+                  onClick={() => onSelectDate(isSel ? null : day)}
+                  className={`bg-surface rounded-xl border p-3 flex flex-col gap-2 shadow-sm cursor-pointer transition-all ${
+                    isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-border/50 pb-1.5" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2" onClick={() => onSelectDate(isSel ? null : day)}>
                       <span className={`text-base font-black ${isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-primary"}`}>
                         {format(day, "M/d")}
                       </span>
@@ -2654,7 +2662,7 @@ function FullCalendar({
 
       {/* Option A: Slide-over Drawer with Backdrop */}
         <AnimatePresence>
-          {selectedDate && calendarViewMode === "grid" && (
+          {selectedDate && (
             <>
               {/* Backdrop */}
               <motion.div
