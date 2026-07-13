@@ -147,18 +147,17 @@ const clearDeletedTaskDependencies = (taskList: Task[], deletedId: string): Task
 };
 
 const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
-  const now = new Date();
-  const start = task.startDate ? parseISO(task.startDate) : parseISO(task.deadline);
-  const end = task.endDate ? parseISO(task.endDate) : parseISO(task.deadline);
-  if (now < start) return "BEFORE";
-  if (now > end) return "AFTER";
+  const today = startOfDay(new Date());
+  const start = startOfDay(task.startDate ? parseISO(task.startDate) : parseISO(task.deadline));
+  const end = startOfDay(task.endDate ? parseISO(task.endDate) : parseISO(task.deadline));
+  if (today < start) return "BEFORE";
+  if (today > end) return "AFTER";
   return "DURING";
 };
 
 const getTaskStatus = (task: Task): TaskStatus => {
   const period = getTaskTimePeriod(task);
-  if (period === "AFTER") return "DONE";
-  if (task.status === "DONE") return "DONE";
+  if (task.status === "DONE" || period === "AFTER") return "DONE";
   return period === "BEFORE" ? "TODO" : "IN_PROGRESS";
 };
 
@@ -1700,9 +1699,15 @@ function TaskColumn({
             {task.description && <p className="text-sm text-on-surface-variant line-clamp-2 mb-3">{task.description}</p>}
 
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border" onClick={(e) => e.stopPropagation()}>
-              <div className="text-xs text-on-surface-variant flex items-center gap-1">
-                <CalendarIcon className="w-3.5 h-3.5" />
-                {format(parseISO(task.deadline), "MM/dd HH:mm")}
+              <div className="text-xs text-on-surface-variant flex items-center gap-1 font-medium bg-background px-1.5 py-0.5 rounded border border-border">
+                <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                {task.startDate && task.endDate && !isSameDay(parseISO(task.startDate), parseISO(task.endDate)) ? (
+                  <span>
+                    {format(parseISO(task.startDate), "MM/dd")} ~ {format(parseISO(task.endDate), "MM/dd")}
+                  </span>
+                ) : (
+                  <span>{format(parseISO(task.deadline), "MM/dd HH:mm")}</span>
+                )}
               </div>
 
               <div className="flex items-center gap-1">
@@ -2515,7 +2520,7 @@ function FullCalendar({
           </div>
         ) : (
           /* List View / Timeline Mode for Z Fold 7 Cover Screen */
-          <div className="flex-1 flex flex-col overflow-y-auto px-1 space-y-3 pb-16 cell-scroll">
+          <div className="flex-1 flex flex-col overflow-y-auto px-1 space-y-3 pb-36 h-auto cell-scroll">
             {daysToShow.map((day) => {
               const isT = isToday(day);
               const dayOfWeek = getDay(day);
