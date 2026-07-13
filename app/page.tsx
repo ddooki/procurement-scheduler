@@ -708,7 +708,7 @@ export default function App() {
         </header>
 
         {/* Dynamic Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6">
           <div className="max-w-7xl mx-auto h-full flex flex-col">
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
@@ -717,7 +717,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex-1 flex flex-col gap-6 h-full pb-8 pt-2"
+                  className="flex-1 flex flex-col gap-4 sm:gap-6 h-full pb-20 sm:pb-8 pt-2"
                 >
                   {/* Stats Row */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
@@ -754,14 +754,14 @@ export default function App() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                     {/* Main Schedule List */}
-                    <div className="lg:col-span-2 bg-surface rounded-2xl p-6 border border-border shadow-sm flex flex-col overflow-hidden">
-                      <h3 className="font-headline text-xl font-bold mb-6 flex items-center gap-2 text-on-surface">
-                        <CalendarIcon className="w-6 h-6 text-primary" />
+                    <div className="lg:col-span-2 bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex flex-col min-h-[350px] sm:min-h-0 sm:overflow-hidden">
+                      <h3 className="font-headline text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 text-on-surface">
+                        <CalendarIcon className="w-5 h-5 sm:w-6 h-6 text-primary" />
                         전체 일정 타임라인
                       </h3>
 
                       {tasks.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
+                        <div className="h-48 sm:h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
                           <ClipboardList className="w-12 h-12 mb-4 opacity-50" />
                           <p>등록된 일정이 없습니다.</p>
                           <button onClick={() => openNewTaskModal()} className="mt-4 text-primary font-bold hover:underline">
@@ -769,7 +769,7 @@ export default function App() {
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-3 overflow-y-auto pr-2 flex-1 hide-scrollbar">
+                        <div className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
                           {tasks
                             .slice()
                             .sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime())
@@ -777,7 +777,7 @@ export default function App() {
                               <div
                                 key={task.id}
                                 onClick={() => openEditTaskModal(task)}
-                                className="flex items-start gap-4 p-4 rounded-xl border border-border hover:bg-surface-variant transition-colors cursor-pointer group"
+                                className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border hover:bg-surface-variant transition-colors cursor-pointer group"
                               >
                                 <div className="mt-1">
                                   {task.status === "DONE" ? (
@@ -786,20 +786,18 @@ export default function App() {
                                     <div className="w-5 h-5 rounded-full border-2 border-border group-hover:border-primary transition-colors" />
                                   )}
                                 </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <TaskBadge type={task.type} />
-                                      <h4 className={`font-bold ${task.status === "DONE" ? "line-through text-on-surface-variant opacity-60" : ""}`}>
-                                        {task.title}
-                                      </h4>
-                                      {task.recurrence && task.recurrence !== "NONE" && (
-                                        <Repeat className="w-3.5 h-3.5 text-tertiary" />
-                                      )}
-                                    </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                                    <TaskBadge type={task.type} />
+                                    <h4 className={`font-bold text-xs sm:text-sm truncate max-w-full ${task.status === "DONE" ? "line-through text-on-surface-variant opacity-60" : ""}`}>
+                                      {task.title}
+                                    </h4>
+                                    {task.recurrence && task.recurrence !== "NONE" && (
+                                      <Repeat className="w-3.5 h-3.5 text-tertiary" />
+                                    )}
                                   </div>
-                                  <div className="flex items-center gap-4 text-sm text-on-surface-variant mt-2">
-                                    <span className="flex items-center gap-1 font-medium bg-background px-2 py-1 rounded-md border border-border">
+                                  <div className="flex items-center gap-4 text-[11px] sm:text-sm text-on-surface-variant mt-2">
+                                    <span className="flex items-center gap-1 font-medium bg-background px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-border">
                                       <Clock className="w-3.5 h-3.5" />
                                       {format(parseISO(task.deadline), "yyyy년 MM월 dd일 HH:mm", { locale: ko })}
                                     </span>
@@ -812,27 +810,27 @@ export default function App() {
                     </div>
 
                     {/* Right Column: Today & Upcoming */}
-                    <div className="flex flex-col gap-6 overflow-hidden">
+                    <div className="flex flex-col gap-6 sm:overflow-hidden min-h-0">
                       {/* Today's Tasks */}
-                      <div className="bg-surface rounded-2xl p-6 border border-border shadow-sm flex-1 flex flex-col overflow-hidden">
-                        <h3 className="font-headline text-lg font-bold mb-4 flex items-center gap-2 text-primary">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[250px] sm:min-h-0 sm:overflow-hidden">
+                        <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-primary">
                           <CheckCircle className="w-5 h-5" />
                           오늘의 할 일
                         </h3>
                         {todayTasks.length === 0 ? (
-                          <div className="flex-1 flex items-center justify-center text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl">
+                          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl min-h-[120px]">
                             오늘 예정된 일정이 없습니다.
                           </div>
                         ) : (
-                          <div className="space-y-3 overflow-y-auto pr-1 hide-scrollbar">
+                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] sm:max-h-none flex-1">
                             {todayTasks.map((task) => (
                               <div
                                 key={task.id}
                                 onClick={() => openEditTaskModal(task)}
-                                className="p-3 bg-surface-variant hover:bg-border cursor-pointer transition-colors rounded-xl text-sm border border-border/50"
+                                className="p-3 bg-surface-variant hover:bg-border cursor-pointer transition-colors rounded-xl text-xs sm:text-sm border border-border/50"
                               >
                                 <div className="font-bold mb-1 truncate">{task.title}</div>
-                                <div className="text-on-surface-variant flex items-center gap-1 font-medium">
+                                <div className="text-on-surface-variant flex items-center gap-1 font-medium text-[10px] sm:text-xs">
                                   <Clock className="w-3.5 h-3.5" />
                                   {format(parseISO(task.deadline), "a h:mm", { locale: ko })}
                                 </div>
@@ -843,17 +841,17 @@ export default function App() {
                       </div>
 
                       {/* Upcoming Deadlines */}
-                      <div className="bg-surface rounded-2xl p-6 border border-border shadow-sm flex-1 flex flex-col overflow-hidden">
-                        <h3 className="font-headline text-lg font-bold mb-4 flex items-center gap-2 text-tertiary">
+                      <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[250px] sm:min-h-0 sm:overflow-hidden">
+                        <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-tertiary">
                           <AlertTriangle className="w-5 h-5" />
                           다가오는 마감일
                         </h3>
                         {upcomingDeadlines.length === 0 ? (
-                          <div className="flex-1 flex items-center justify-center text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl">
+                          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl min-h-[120px]">
                             다가오는 마감이 없습니다.
                           </div>
                         ) : (
-                          <div className="space-y-3 overflow-y-auto pr-1 hide-scrollbar">
+                          <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] sm:max-h-none flex-1">
                             {upcomingDeadlines.map((task) => {
                               const date = parseISO(task.deadline);
                               const isTom = isTomorrow(date);
@@ -863,10 +861,10 @@ export default function App() {
                                   onClick={() => openEditTaskModal(task)}
                                   className="p-3 border-l-4 border-tertiary bg-tertiary-container/10 hover:bg-tertiary-container/20 cursor-pointer transition-colors rounded-r-xl rounded-l-sm border-y border-r border-border/50"
                                 >
-                                  <div className="font-bold text-sm mb-1 truncate">{task.title}</div>
-                                  <div className="text-xs text-on-surface-variant flex items-center justify-between font-medium mt-1">
+                                  <div className="font-bold text-xs sm:text-sm mb-1 truncate">{task.title}</div>
+                                  <div className="text-[10px] sm:text-xs text-on-surface-variant flex items-center justify-between font-medium mt-1">
                                     <span>{format(date, "MMM do (E)", { locale: ko })}</span>
-                                    <span className="font-bold text-tertiary px-2 py-0.5 bg-tertiary-container/30 rounded-full">
+                                    <span className="font-bold text-tertiary px-1.5 py-0.2 bg-tertiary-container/30 rounded-full text-[9px] sm:text-[11px]">
                                       {isTom ? "내일" : format(date, "MM/dd")}
                                     </span>
                                   </div>
@@ -894,7 +892,7 @@ export default function App() {
                     <p className="text-on-surface-variant">모든 작업을 상태별로 관리하세요.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 sm:overflow-hidden pb-16 sm:pb-0">
                     <TaskColumn
                       title="해야 할 일"
                       tasks={tasks.filter((t) => getTaskStatus(t) === "TODO")}
@@ -1677,7 +1675,7 @@ function TaskColumn({
   accent: string;
 }) {
   return (
-    <div className="flex flex-col bg-surface-variant/30 rounded-2xl p-4 h-full overflow-hidden border border-border/50">
+    <div className="flex flex-col bg-surface-variant/30 rounded-2xl p-4 h-full min-h-[280px] sm:min-h-0 overflow-hidden border border-border/50">
       <div className="flex items-center gap-2 mb-4 px-2">
         <div className={`w-3 h-3 rounded-full ${accent}`} />
         <h3 className="font-headline font-bold text-lg">{title}</h3>
