@@ -1305,7 +1305,7 @@ export default function App() {
                 </button>
               </div>
               <TaskForm
-                initialData={editingTask && editingTask.id ? editingTask : null}
+                initialData={editingTask}
                 tasks={tasks}
                 onSubmit={handleSaveTask}
                 onCancel={() => setIsTaskModalOpen(false)}
@@ -1815,6 +1815,37 @@ function TaskForm({
   const [prevTaskId, setPrevTaskId] = useState<string>(initialData?.prevTaskId || "");
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Sync state with initialData when it changes
+  useEffect(() => {
+    setTitle(initialData?.title || "");
+    setType(initialData?.type || "GENERAL");
+    
+    const start = initialData?.startDate ? parseISO(initialData.startDate) : (initialData?.deadline ? parseISO(initialData.deadline) : new Date());
+    const end = initialData?.endDate ? parseISO(initialData.endDate) : (initialData?.deadline ? parseISO(initialData.deadline) : new Date());
+    
+    setStartDateStr(format(start, "yyyy-MM-dd"));
+    setStartTimeStr(format(start, "HH:mm"));
+    setEndDateStr(format(end, "yyyy-MM-dd"));
+    setEndTimeStr(format(end, "HH:mm"));
+
+    const hasDifferentDates = initialData?.startDate && initialData?.endDate ? initialData.startDate !== initialData.endDate : false;
+    setUseEndDateTime(hasDifferentDates);
+
+    let isAllDayVal = false;
+    if (initialData?.startDate && initialData?.endDate) {
+      const s = parseISO(initialData.startDate);
+      const e = parseISO(initialData.endDate);
+      isAllDayVal = format(s, "HH:mm") === "00:00" && (format(e, "HH:mm") === "23:59" || format(e, "HH:mm") === "00:00");
+    }
+    setIsAllDay(isAllDayVal);
+    setDesc(initialData?.description || "");
+    setColor(initialData?.color || TASK_COLORS[0]);
+    setRecurrence(initialData?.recurrence || "NONE");
+    setNextTaskId(initialData?.nextTaskId || "");
+    setPrevTaskId(initialData?.prevTaskId || "");
+    setShowDeleteConfirm(false);
+  }, [initialData]);
 
   const handleStartChange = (newDateStr: string, newTimeStr: string) => {
     const currentStart = new Date(`${startDateStr}T${startTimeStr}`);
