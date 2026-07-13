@@ -171,6 +171,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "VERCEL_KV">("LOCAL");
@@ -463,8 +464,21 @@ export default function App() {
     setEditingTask(null);
   };
 
-  const openNewTaskModal = () => {
-    setEditingTask(null);
+  const openNewTaskModal = (defaultDate?: Date) => {
+    if (defaultDate) {
+      setEditingTask({
+        id: "",
+        title: "",
+        type: "GENERAL",
+        deadline: defaultDate.toISOString(),
+        status: "TODO",
+        startDate: defaultDate.toISOString(),
+        endDate: defaultDate.toISOString(),
+        createdAt: "",
+      });
+    } else {
+      setEditingTask(null);
+    }
     setIsTaskModalOpen(true);
   };
 
@@ -666,7 +680,7 @@ export default function App() {
             </button>
           </div>
           <button
-            onClick={openNewTaskModal}
+            onClick={() => openNewTaskModal()}
             className="relative w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
           >
             <Plus className="absolute left-5 w-5 h-5" />
@@ -750,7 +764,7 @@ export default function App() {
                         <div className="h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
                           <ClipboardList className="w-12 h-12 mb-4 opacity-50" />
                           <p>등록된 일정이 없습니다.</p>
-                          <button onClick={openNewTaskModal} className="mt-4 text-primary font-bold hover:underline">
+                          <button onClick={() => openNewTaskModal()} className="mt-4 text-primary font-bold hover:underline">
                             첫 번째 일정 추가하기
                           </button>
                         </div>
@@ -938,6 +952,8 @@ export default function App() {
                         });
                         setIsTaskModalOpen(true);
                       }}
+                      selectedDate={selectedCalendarDate}
+                      onSelectDate={setSelectedCalendarDate}
                     />
                   </div>
                 </motion.div>
@@ -1270,7 +1286,7 @@ export default function App() {
         <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
         <MobileNavItem icon={<LayoutDashboard />} isActive={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
         <button
-          onClick={openNewTaskModal}
+          onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
           className="w-12 h-12 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg transform -translate-y-4"
         >
           <Plus className="w-6 h-6" />
@@ -2164,13 +2180,16 @@ function FullCalendar({
   tasks,
   onEditTask,
   onAddTask,
+  selectedDate,
+  onSelectDate,
 }: {
   tasks: Task[];
   onEditTask: (t: Task) => void;
   onAddTask: (date: Date) => void;
+  selectedDate: Date | null;
+  onSelectDate: (date: Date | null) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorMode, setSelectorMode] = useState<"month" | "year">("month");
   const [calendarViewMode, setCalendarViewMode] = useState<"grid" | "list">("grid");
@@ -2253,7 +2272,7 @@ function FullCalendar({
             <button
               onClick={() => {
                 setCurrentDate(subMonths(currentDate, 1));
-                setSelectedDate(null);
+                onSelectDate(null);
               }}
               className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
               title="이전 달"
@@ -2263,7 +2282,7 @@ function FullCalendar({
             <button
               onClick={() => {
                 setCurrentDate(addMonths(currentDate, 1));
-                setSelectedDate(null);
+                onSelectDate(null);
               }}
               className="p-1.5 hover:bg-surface-variant rounded-lg border border-border bg-surface text-on-surface-variant transition-colors"
               title="다음 달"
@@ -2338,7 +2357,7 @@ function FullCalendar({
                           const newDate = new Date(currentDate);
                           newDate.setMonth(i);
                           setCurrentDate(newDate);
-                          setSelectedDate(null);
+                          onSelectDate(null);
                           setShowSelector(false);
                         }}
                         className={`py-2 rounded-lg font-medium text-sm transition-colors ${
@@ -2375,7 +2394,7 @@ function FullCalendar({
                             const newDate = new Date(currentDate);
                             newDate.setFullYear(year);
                             setCurrentDate(newDate);
-                            setSelectedDate(null);
+                            onSelectDate(null);
                             setSelectorMode("month");
                           }}
                           className={`py-2 rounded-lg font-medium text-sm transition-colors ${
@@ -2449,7 +2468,7 @@ function FullCalendar({
                 return (
                   <div
                     key={day.toString()}
-                    onClick={() => setSelectedDate(isSel ? null : day)}
+                    onClick={() => onSelectDate(isSel ? null : day)}
                     className={`p-1 sm:p-2 rounded-xl bg-surface border ${
                       isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
                     } flex flex-col min-h-[60px] sm:min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
@@ -2588,7 +2607,7 @@ function FullCalendar({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setSelectedDate(null)}
+                onClick={() => onSelectDate(null)}
                 className="absolute inset-0 bg-black/20 z-20 will-change-[opacity]"
               />
               {/* Drawer */}
@@ -2616,7 +2635,7 @@ function FullCalendar({
                       <Plus className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => setSelectedDate(null)}
+                      onClick={() => onSelectDate(null)}
                       className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors flex items-center justify-center min-h-[40px] min-w-[40px]"
                       title="닫기"
                     >
