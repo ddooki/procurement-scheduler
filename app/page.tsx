@@ -94,39 +94,31 @@ const updateTaskDependencies = (
   newPrevId: string | undefined,
   newNextId: string | undefined
 ): Task[] => {
-  const targetTask = taskList.find(t => t.id === targetId);
-  const oldPrevId = targetTask?.prevTaskId;
-  const oldNextId = targetTask?.nextTaskId;
-
   return taskList.map(t => {
     let nextTaskId = t.nextTaskId;
     let prevTaskId = t.prevTaskId;
 
+    // 1. If this is the edited task, set its new connections
     if (t.id === targetId) {
       nextTaskId = newNextId || undefined;
       prevTaskId = newPrevId || undefined;
     } else {
-      if (oldPrevId && t.id === oldPrevId && t.nextTaskId === targetId) {
+      // 2. If another task used to point to targetId as next, but targetId no longer has it as prev
+      if (nextTaskId === targetId && newPrevId !== t.id) {
         nextTaskId = undefined;
       }
-      if (oldNextId && t.id === oldNextId && t.prevTaskId === targetId) {
+      // 3. If another task used to point to targetId as prev, but targetId no longer has it as next
+      if (prevTaskId === targetId && newNextId !== t.id) {
         prevTaskId = undefined;
       }
 
+      // 4. Set targetId as next for the new previous task
       if (newPrevId && t.id === newPrevId) {
         nextTaskId = targetId;
       }
+      // 5. Set targetId as prev for the new next task
       if (newNextId && t.id === newNextId) {
         prevTaskId = targetId;
-      }
-
-      const newPrevTask = taskList.find(x => x.id === newPrevId);
-      if (newPrevTask && newPrevTask.nextTaskId === t.id && t.id !== targetId) {
-        prevTaskId = undefined;
-      }
-      const newNextTask = taskList.find(x => x.id === newNextId);
-      if (newNextTask && newNextTask.prevTaskId === t.id && t.id !== targetId) {
-        nextTaskId = undefined;
       }
     }
 
@@ -1147,7 +1139,7 @@ export default function App() {
                                       </div>
                                       {idx < chain.length - 1 && (
                                         <div className="flex justify-center my-0.5">
-                                          <ArrowRight className="w-4 h-4 text-on-surface-variant/40 rotate-90 md:rotate-0" />
+                                          <ChevronDown className="w-5 h-5 text-on-surface-variant/40 animate-pulse" />
                                         </div>
                                       )}
                                     </React.Fragment>
