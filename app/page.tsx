@@ -607,7 +607,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
+    <div className="flex h-[100dvh] bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
       {/* Left Navigation */}
       <nav className="w-64 flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex">
         <div className="p-6 pb-8 border-b border-border/50">
@@ -689,7 +689,7 @@ export default function App() {
       </nav>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-full lg:h-[100dvh] overflow-hidden">
         {/* Mobile Header */}
         <header className="h-16 px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-10 md:hidden">
           <div className="flex items-center gap-2">
@@ -707,7 +707,7 @@ export default function App() {
         </header>
 
         {/* Dynamic Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6 cell-scroll">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-6 cell-scroll">
           <div className="max-w-7xl mx-auto h-full lg:h-full flex flex-col">
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
@@ -1279,7 +1279,7 @@ export default function App() {
       </div>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-6 py-2 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-6 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-50">
         <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
         <MobileNavItem icon={<LayoutDashboard />} isActive={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
         <button
