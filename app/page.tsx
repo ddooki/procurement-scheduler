@@ -161,6 +161,61 @@ const getTaskStatus = (task: Task): TaskStatus => {
   return period === "BEFORE" ? "TODO" : "IN_PROGRESS";
 };
 
+// Filter recurring tasks for the Work status board:
+// Only show the single nearest active occurrence (IN_PROGRESS > earliest TODO).
+// Exclude past occurrences if a future one is already scheduled.
+const filterTasksForBoard = (taskList: Task[]): Task[] => {
+  const recurringGroups: { [key: string]: Task[] } = {};
+  const nonRecurringTasks: Task[] = [];
+
+  taskList.forEach(t => {
+    if (t.recurrence && t.recurrence !== "NONE") {
+      // Group by parentId (or its own ID if it is the parent)
+      const groupKey = t.parentId || t.id;
+      if (!recurringGroups[groupKey]) {
+        recurringGroups[groupKey] = [];
+      }
+      recurringGroups[groupKey].push(t);
+    } else {
+      nonRecurringTasks.push(t);
+    }
+  });
+
+  const selectedRecurringTasks: Task[] = [];
+
+  Object.values(recurringGroups).forEach(group => {
+    // Sort tasks in chronological order
+    const sorted = [...group].sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime());
+    
+    // Find if any is currently IN_PROGRESS
+    const activeProgress = sorted.find(t => getTaskStatus(t) === "IN_PROGRESS");
+    if (activeProgress) {
+      selectedRecurringTasks.push(activeProgress);
+      return;
+    }
+
+    // Find the nearest upcoming TODO task (today or future)
+    const today = startOfDay(new Date());
+    const upcomingTodo = sorted.find(t => {
+      const status = getTaskStatus(t);
+      const deadline = startOfDay(parseISO(t.deadline));
+      return status === "TODO" && deadline >= today;
+    });
+
+    if (upcomingTodo) {
+      selectedRecurringTasks.push(upcomingTodo);
+      return;
+    }
+
+    // If all tasks are completed/past, show the latest completed/past task
+    if (sorted.length > 0) {
+      selectedRecurringTasks.push(sorted[sorted.length - 1]);
+    }
+  });
+
+  return [...nonRecurringTasks, ...selectedRecurringTasks];
+};
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
@@ -641,7 +696,7 @@ export default function App() {
           />
           <NavItem
             icon={<ClipboardList className="w-5 h-5" />}
-            label="작업보드"
+            label="작업현황"
             isActive={activeTab === "tasks"}
             onClick={() => setActiveTab("tasks")}
           />
@@ -884,17 +939,13 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="h-full flex flex-col"
+                  className="h-full flex flex-col pt-2"
                 >
-                  <div className="mb-6">
-                    <h2 className="font-headline text-3xl font-bold mb-1">작업보드</h2>
-                    <p className="text-on-surface-variant">모든 작업을 상태별로 관리하세요.</p>
-                  </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 sm:overflow-hidden pb-16 sm:pb-0">
                     <TaskColumn
                       title="해야 할 일"
-                      tasks={tasks.filter((t) => getTaskStatus(t) === "TODO")}
+                      tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "TODO")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="TODO"
@@ -902,7 +953,7 @@ export default function App() {
                     />
                     <TaskColumn
                       title="진행 중"
-                      tasks={tasks.filter((t) => getTaskStatus(t) === "IN_PROGRESS")}
+                      tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "IN_PROGRESS")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="IN_PROGRESS"
@@ -910,7 +961,7 @@ export default function App() {
                     />
                     <TaskColumn
                       title="완료"
-                      tasks={tasks.filter((t) => getTaskStatus(t) === "DONE")}
+                      tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "DONE")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       status="DONE"
