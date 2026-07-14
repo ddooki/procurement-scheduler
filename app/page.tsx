@@ -1929,14 +1929,6 @@ function TaskForm({
   const [endDateStr, setEndDateStr] = useState(format(initEnd, "yyyy-MM-dd"));
   const [endTimeStr, setEndTimeStr] = useState(format(initEnd, "HH:mm"));
 
-  // Toggle for active end date/time (b & c tasks)
-  const [useEndDateTime, setUseEndDateTime] = useState(() => {
-    if (initialData?.startDate && initialData?.endDate) {
-      return initialData.startDate !== initialData.endDate;
-    }
-    return false;
-  });
-
   // Toggle for all-day events
   const [isAllDay, setIsAllDay] = useState(() => {
     if (initialData?.startDate && initialData?.endDate) {
@@ -1945,6 +1937,22 @@ function TaskForm({
       const startHMs = format(start, "HH:mm");
       const endHMs = format(end, "HH:mm");
       return startHMs === "00:00" && (endHMs === "23:59" || endHMs === "00:00");
+    }
+    return false;
+  });
+
+  // Toggle for active end date/time (b & c tasks)
+  const [useEndDateTime, setUseEndDateTime] = useState(() => {
+    if (initialData?.startDate && initialData?.endDate) {
+      const start = parseISO(initialData.startDate);
+      const end = parseISO(initialData.endDate);
+      const startHMs = format(start, "HH:mm");
+      const endHMs = format(end, "HH:mm");
+      const isAllDayVal = startHMs === "00:00" && (endHMs === "23:59" || endHMs === "00:00");
+      if (isAllDayVal) {
+        return format(start, "yyyy-MM-dd") !== format(end, "yyyy-MM-dd");
+      }
+      return initialData.startDate !== initialData.endDate;
     }
     return false;
   });
@@ -1974,9 +1982,6 @@ function TaskForm({
     setEndDateStr(format(end, "yyyy-MM-dd"));
     setEndTimeStr(format(end, "HH:mm"));
 
-    const hasDifferentDates = initialData?.startDate && initialData?.endDate ? initialData.startDate !== initialData.endDate : false;
-    setUseEndDateTime(hasDifferentDates);
-
     let isAllDayVal = false;
     if (initialData?.startDate && initialData?.endDate) {
       const s = parseISO(initialData.startDate);
@@ -1984,6 +1989,16 @@ function TaskForm({
       isAllDayVal = format(s, "HH:mm") === "00:00" && (format(e, "HH:mm") === "23:59" || format(e, "HH:mm") === "00:00");
     }
     setIsAllDay(isAllDayVal);
+
+    let hasDifferentDates = false;
+    if (initialData?.startDate && initialData?.endDate) {
+      if (isAllDayVal) {
+        hasDifferentDates = format(start, "yyyy-MM-dd") !== format(end, "yyyy-MM-dd");
+      } else {
+        hasDifferentDates = initialData.startDate !== initialData.endDate;
+      }
+    }
+    setUseEndDateTime(hasDifferentDates);
     setDesc(initialData?.description || "");
     setColor(initialData?.color || TASK_COLORS[0]);
     setRecurrence(initialData?.recurrence || "NONE");
