@@ -423,7 +423,7 @@ export default function App() {
     let updatedTasks = [...tasks];
     let targetId = "";
 
-    if (editingTask) {
+    if (editingTask && editingTask.id) {
       targetId = editingTask.id;
       // Modify existing
       const updatedTask = {
