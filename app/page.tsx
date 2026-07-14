@@ -224,10 +224,26 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
     // Sort tasks in chronological order
     const sorted = [...group].sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime());
     
+    // Find completed/past tasks within 2 business days and keep them
+    const completedRetentionTasks = sorted.filter(t => {
+      if (getTaskStatus(t) !== "DONE") return false;
+      const refDate = t.completedAt 
+        ? parseISO(t.completedAt) 
+        : (t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+      return countBusinessDaysBetween(refDate, new Date(), taskList) <= 2;
+    });
+    
+    completedRetentionTasks.forEach(t => {
+      selectedRecurringTasks.push(t);
+    });
+
+    // Find the single active/upcoming task to show in TODO/IN_PROGRESS (or DONE if no upcoming)
     // Find if any is currently IN_PROGRESS
     const activeProgress = sorted.find(t => getTaskStatus(t) === "IN_PROGRESS");
     if (activeProgress) {
-      selectedRecurringTasks.push(activeProgress);
+      if (!completedRetentionTasks.some(t => t.id === activeProgress.id)) {
+        selectedRecurringTasks.push(activeProgress);
+      }
       return;
     }
 
@@ -240,13 +256,18 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
     });
 
     if (upcomingTodo) {
-      selectedRecurringTasks.push(upcomingTodo);
+      if (!completedRetentionTasks.some(t => t.id === upcomingTodo.id)) {
+        selectedRecurringTasks.push(upcomingTodo);
+      }
       return;
     }
 
-    // If all tasks are completed/past, show the latest completed/past task
+    // If all tasks are completed/past, show the latest completed/past task (if not already included)
     if (sorted.length > 0) {
-      selectedRecurringTasks.push(sorted[sorted.length - 1]);
+      const latest = sorted[sorted.length - 1];
+      if (!completedRetentionTasks.some(t => t.id === latest.id)) {
+        selectedRecurringTasks.push(latest);
+      }
     }
   });
 
