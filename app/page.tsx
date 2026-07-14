@@ -60,7 +60,7 @@ import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchTasksFromServer, saveTasksToServer, isKVConfigured, checkServerKVStatus } from "../lib/kv";
 
-type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL";
+type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL" | "HOLIDAY" | "COMPANY_HOLIDAY" | "PERSONAL_LEAVE";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type RecurrenceType = "NONE" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMI_ANNUALLY" | "ANNUALLY";
 
@@ -136,6 +136,51 @@ const clearDeletedTaskDependencies = (taskList: Task[], deletedId: string): Task
     let prevTaskId = t.prevTaskId === deletedId ? undefined : t.prevTaskId;
     return { ...t, nextTaskId, prevTaskId };
   });
+};
+
+const isBusinessDay = (date: Date, tasks: Task[]): boolean => {
+  const dayOfWeek = getDay(date); // 0 = Sunday, 6 = Saturday
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+
+  const targetDay = startOfDay(date);
+
+  // Check if there is any holiday / leave task scheduled on this date
+  const isHoliday = tasks.some(t => {
+    if (t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE") {
+      return false;
+    }
+    const start = startOfDay(t.startDate ? parseISO(t.startDate) : parseISO(t.deadline));
+    const end = startOfDay(t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+    return targetDay >= start && targetDay <= end;
+  });
+
+  return !isHoliday;
+};
+
+const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[]): number => {
+  let startD = startOfDay(start);
+  let endD = startOfDay(end);
+
+  if (isSameDay(startD, endD)) return 0;
+
+  let isNegative = false;
+  if (isAfter(startD, endD)) {
+    const temp = startD;
+    startD = endD;
+    endD = temp;
+    isNegative = true;
+  }
+
+  let count = 0;
+  let current = startD;
+  while (!isSameDay(current, endD)) {
+    current = addDays(current, 1);
+    if (isBusinessDay(current, tasks)) {
+      count++;
+    }
+  }
+
+  return isNegative ? -count : count;
 };
 
 const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
@@ -530,6 +575,18 @@ export default function App() {
 
   const openEditTaskModal = (task: Task) => {
     setEditingTask(task);
+    setIsTaskModalOpen(true);
+  };
+
+  const openRescheduleTaskModal = (task: Task) => {
+    const dayAfterTomorrow = addDays(new Date(), 2);
+    setEditingTask({
+      ...task,
+      status: "IN_PROGRESS",
+      deadline: dayAfterTomorrow.toISOString(),
+      startDate: dayAfterTomorrow.toISOString(),
+      endDate: dayAfterTomorrow.toISOString(),
+    });
     setIsTaskModalOpen(true);
   };
 
@@ -940,6 +997,7 @@ export default function App() {
                       tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "TODO")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
+                      onRescheduleTask={openRescheduleTaskModal}
                       status="TODO"
                       accent="bg-border"
                     />
@@ -948,14 +1006,22 @@ export default function App() {
                       tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "IN_PROGRESS")}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
+                      onRescheduleTask={openRescheduleTaskModal}
                       status="IN_PROGRESS"
                       accent="bg-tertiary"
                     />
                     <TaskColumn
                       title="완료"
-                      tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "DONE")}
+                      tasks={filterTasksForBoard(tasks).filter((t) => {
+                        if (getTaskStatus(t) !== "DONE") return false;
+                        const refDate = t.completedAt 
+                          ? parseISO(t.completedAt) 
+                          : (t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+                        return countBusinessDaysBetween(refDate, new Date(), tasks) <= 2;
+                      })}
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
+                      onRescheduleTask={openRescheduleTaskModal}
                       status="DONE"
                       accent="bg-primary"
                     />
@@ -1689,10 +1755,13 @@ function TaskBadge({ type }: { type: TaskType }) {
   const config = {
     MEETING: { label: "미팅", classes: "bg-primary-container text-primary font-bold" },
     BID: { label: "입찰", classes: "bg-error-container text-error font-bold" },
-    SUBMISSION: { label: "제출", classes: "bg-tertiary-container text-tertiary font-bold" },
+    SUBMISSION: { label: "업무 제출", classes: "bg-tertiary-container text-tertiary font-bold" },
     GENERAL: { label: "일반", classes: "bg-surface-variant text-on-surface-variant" },
+    HOLIDAY: { label: "휴일", classes: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold" },
+    COMPANY_HOLIDAY: { label: "지정연차", classes: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-bold" },
+    PERSONAL_LEAVE: { label: "연차/휴가", classes: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 font-bold" },
   };
-  const { label, classes } = config[type];
+  const { label, classes } = config[type] || { label: "일반", classes: "bg-surface-variant text-on-surface-variant" };
 
   return (
     <span className={`px-2 py-0.5 rounded-md text-[11px] uppercase tracking-wider ${classes}`}>
@@ -1706,6 +1775,7 @@ function TaskColumn({
   tasks,
   onUpdateStatus,
   onEditTask,
+  onRescheduleTask,
   status,
   accent,
 }: {
@@ -1713,6 +1783,7 @@ function TaskColumn({
   tasks: Task[];
   onUpdateStatus: (id: string, s: TaskStatus) => void;
   onEditTask: (t: Task) => void;
+  onRescheduleTask?: (t: Task) => void;
   status: TaskStatus;
   accent: string;
 }) {
@@ -1788,6 +1859,15 @@ function TaskColumn({
                         onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
                         className="p-1 hover:bg-surface-variant rounded text-tertiary"
                         title="진행 중으로 복원"
+                      >
+                        <Clock className="w-4 h-4" />
+                      </button>
+                    )}
+                    {getTaskTimePeriod(task) === "AFTER" && (
+                      <button
+                        onClick={() => onRescheduleTask?.(task)}
+                        className="p-1 hover:bg-surface-variant rounded text-error"
+                        title="진행 중으로 복원 및 일정 변경"
                       >
                         <Clock className="w-4 h-4" />
                       </button>
@@ -1996,10 +2076,13 @@ function TaskForm({
             onChange={(e) => setType(e.target.value as TaskType)}
             className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
           >
-            <option value="MEETING">미팅 (Meeting)</option>
-            <option value="BID">입찰 (Bid)</option>
-            <option value="SUBMISSION">업무 제출 (Submission)</option>
-            <option value="GENERAL">일반 (General)</option>
+             <option value="GENERAL">일반</option>
+            <option value="MEETING">미팅</option>
+            <option value="BID">입찰</option>
+            <option value="SUBMISSION">업무 제출</option>
+            <option value="HOLIDAY">휴일</option>
+            <option value="COMPANY_HOLIDAY">지정연차</option>
+            <option value="PERSONAL_LEAVE">연차/휴가</option>
           </select>
         </div>
 
