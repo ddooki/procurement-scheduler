@@ -283,6 +283,8 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [rescheduleTask, setRescheduleTask] = useState<Task | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -600,15 +602,31 @@ export default function App() {
   };
 
   const openRescheduleTaskModal = (task: Task) => {
-    const dayAfterTomorrow = addDays(new Date(), 2);
-    setEditingTask({
-      ...task,
-      status: "IN_PROGRESS",
-      deadline: dayAfterTomorrow.toISOString(),
-      startDate: dayAfterTomorrow.toISOString(),
-      endDate: dayAfterTomorrow.toISOString(),
+    setRescheduleTask(task);
+    setIsRescheduleModalOpen(true);
+  };
+
+  const handleSaveRescheduledTask = async (
+    taskId: string,
+    dates: { deadline: string; startDate: string; endDate: string }
+  ) => {
+    let updatedTasks = tasks.map((t) => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          status: "IN_PROGRESS" as TaskStatus,
+          completedAt: undefined,
+          deadline: dates.deadline,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+        };
+      }
+      return t;
     });
-    setIsTaskModalOpen(true);
+
+    await saveTasksState(updatedTasks);
+    setIsRescheduleModalOpen(false);
+    setRescheduleTask(null);
   };
 
   const updateTaskStatus = async (id: string, status: TaskStatus) => {
@@ -1459,6 +1477,21 @@ export default function App() {
               />
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Reschedule Modal */}
+      <AnimatePresence>
+        {isRescheduleModalOpen && rescheduleTask && (
+          <RescheduleModal
+            task={rescheduleTask}
+            tasks={tasks}
+            onSave={handleSaveRescheduledTask}
+            onCancel={() => {
+              setIsRescheduleModalOpen(false);
+              setRescheduleTask(null);
+            }}
+          />
         )}
       </AnimatePresence>
 
@@ -2338,6 +2371,243 @@ function TaskForm({
         </div>
       </div>
     </form>
+  );
+}
+
+interface RescheduleModalProps {
+  task: Task;
+  tasks: Task[];
+  onSave: (taskId: string, dates: { deadline: string; startDate: string; endDate: string }) => void;
+  onCancel: () => void;
+}
+
+function RescheduleModal({ task, tasks, onSave, onCancel }: RescheduleModalProps) {
+  // Default new deadline to 2 days from now (same as before)
+  const defaultDate = addDays(new Date(), 2);
+  
+  const initStart = task.startDate ? parseISO(task.startDate) : (task.deadline ? parseISO(task.deadline) : defaultDate);
+  const initEnd = task.endDate ? task.endDate : (task.deadline ? task.deadline : defaultDate.toISOString());
+
+  const [startDateStr, setStartDateStr] = useState(format(initStart, "yyyy-MM-dd"));
+  const [startTimeStr, setStartTimeStr] = useState(format(initStart, "HH:mm"));
+  const [endDateStr, setEndDateStr] = useState(format(parseISO(initEnd), "yyyy-MM-dd"));
+  const [endTimeStr, setEndTimeStr] = useState(format(parseISO(initEnd), "HH:mm"));
+
+  const [isAllDay, setIsAllDay] = useState(() => {
+    if (task.startDate && task.endDate) {
+      const start = parseISO(task.startDate);
+      const end = parseISO(task.endDate);
+      const startHMs = format(start, "HH:mm");
+      const endHMs = format(end, "HH:mm");
+      return startHMs === "00:00" && (endHMs === "23:59" || endHMs === "00:00");
+    }
+    return false;
+  });
+
+  const [useEndDateTime, setUseEndDateTime] = useState(() => {
+    if (task.startDate && task.endDate) {
+      const start = parseISO(task.startDate);
+      const end = parseISO(task.endDate);
+      const startHMs = format(start, "HH:mm");
+      const endHMs = format(end, "HH:mm");
+      const isAllDayVal = startHMs === "00:00" && (endHMs === "23:59" || endHMs === "00:00");
+      if (isAllDayVal) {
+        return format(start, "yyyy-MM-dd") !== format(end, "yyyy-MM-dd");
+      }
+      return task.startDate !== task.endDate;
+    }
+    return false;
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const startISO = new Date(`${startDateStr}T${startTimeStr}`).toISOString();
+    const endISO = useEndDateTime 
+      ? new Date(`${endDateStr}T${endTimeStr}`).toISOString()
+      : startISO;
+
+    onSave(task.id, {
+      deadline: endISO,
+      startDate: startISO,
+      endDate: endISO,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="relative bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col border border-border"
+      >
+        <div className="flex justify-between items-center p-5 border-b border-border">
+          <h2 className="font-headline text-lg font-bold flex items-center gap-2">
+            <Clock className="w-5 h-5 text-primary" />
+            일정 연장 및 복원
+          </h2>
+          <button
+            onClick={onCancel}
+            className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-sm bg-surface">
+          <div>
+            <span className="text-xs text-on-surface-variant font-bold block mb-1">선택된 일정</span>
+            <div className="p-3 bg-surface-variant/30 rounded-xl font-bold text-base border border-border/50 text-on-surface">
+              {task.title}
+            </div>
+            {task.recurrence && task.recurrence !== "NONE" && (
+              <p className="text-xs text-primary/80 mt-1.5 flex items-center gap-1 font-medium">
+                ⚠️ 본 기능은 이 단일 일정 하나에만 적용되며, 다른 반복 회차의 마감일은 변경되지 않습니다.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 p-3 bg-surface-variant/20 border border-border/40 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rescheduleUseEndDateTime"
+                  checked={useEndDateTime}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUseEndDateTime(checked);
+                    if (!checked) {
+                      setEndDateStr(startDateStr);
+                      setEndTimeStr(startTimeStr);
+                    } else {
+                      const start = new Date(`${startDateStr}T${startTimeStr}`);
+                      const end = new Date(start.getTime() + 60 * 60 * 1000);
+                      setEndDateStr(format(end, "yyyy-MM-dd"));
+                      setEndTimeStr(format(end, "HH:mm"));
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+                />
+                <label htmlFor="rescheduleUseEndDateTime" className="text-xs font-bold select-none cursor-pointer text-on-surface">
+                  종료 날짜 / 시간 활성화
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rescheduleIsAllDay"
+                  checked={isAllDay}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsAllDay(checked);
+                    if (checked) {
+                      setStartTimeStr("00:00");
+                      setEndTimeStr("23:59");
+                    } else {
+                      const now = new Date();
+                      setStartTimeStr(format(now, "HH:mm"));
+                      setEndTimeStr(format(new Date(now.getTime() + 60 * 60 * 1000), "HH:mm"));
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+                />
+                <label htmlFor="rescheduleIsAllDay" className="text-xs font-bold select-none cursor-pointer text-on-surface">
+                  하루종일
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  시작 날짜 / 시간
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={startDateStr}
+                    onChange={(e) => {
+                      setStartDateStr(e.target.value);
+                      if (!useEndDateTime) {
+                        setEndDateStr(e.target.value);
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                    required
+                  />
+                  {!isAllDay && (
+                    <input
+                      type="time"
+                      value={startTimeStr}
+                      onChange={(e) => {
+                        setStartTimeStr(e.target.value);
+                        if (!useEndDateTime) {
+                          setEndTimeStr(e.target.value);
+                        }
+                      }}
+                      className="w-28 px-3 py-2 rounded-xl border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                      required
+                    />
+                  )}
+                </div>
+              </div>
+
+              {useEndDateTime && (
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                    종료 날짜 / 시간
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={endDateStr}
+                      onChange={(e) => setEndDateStr(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                      required
+                    />
+                    {!isAllDay && (
+                      <input
+                        type="time"
+                        value={endTimeStr}
+                        onChange={(e) => setEndTimeStr(e.target.value)}
+                        className="w-28 px-3 py-2 rounded-xl border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                        required
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end mt-2 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-variant/20 font-bold transition-colors text-on-surface"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              className="flex-1 h-[44px] rounded-xl bg-primary text-on-primary hover:bg-primary/90 font-bold transition-colors"
+            >
+              연장 및 저장
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
   );
 }
 
