@@ -1,29 +1,57 @@
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
 
-const STORAGE_KEY = "outsourcing_team_schedule_data";
+const GAS_WEBHOOK_URL = process.env.GAS_WEBHOOK_URL;
 
 export async function GET() {
+  if (!GAS_WEBHOOK_URL) {
+    console.warn("GAS_WEBHOOK_URL is not configured.");
+    return NextResponse.json({ tasks: [], error: "Database not configured" }, { status: 500 });
+  }
+
   try {
-    // Vercel KV uses Upstash Redis underneath
-    const data: any = await kv.get(STORAGE_KEY);
-    if (!data) {
-      return NextResponse.json({ tasks: [] });
+    const res = await fetch(GAS_WEBHOOK_URL, {
+      method: "GET",
+      cache: "no-store", // Disable Next.js fetch caching to ensure real-time data sync
+    });
+
+    if (!res.ok) {
+      throw new Error(`GAS returned status ${res.status}`);
     }
-    return NextResponse.json(typeof data === "string" ? JSON.parse(data) : data);
+
+    const data = await res.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Vercel KV GET error:", error);
+    console.error("GAS GET error:", error);
     return NextResponse.json({ tasks: [], error: String(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  if (!GAS_WEBHOOK_URL) {
+    console.warn("GAS_WEBHOOK_URL is not configured.");
+    return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
+  }
+
   try {
     const body = await request.json();
-    await kv.set(STORAGE_KEY, body);
-    return NextResponse.json({ success: true });
+    
+    const res = await fetch(GAS_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`GAS returned status ${res.status}`);
+    }
+
+    const data = await res.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Vercel KV POST error:", error);
+    console.error("GAS POST error:", error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }
+

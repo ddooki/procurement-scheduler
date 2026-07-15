@@ -1,10 +1,6 @@
 
-// Check if Vercel KV environment variables are actually configured in the environment (on server-side)
-export const isKVConfigured = !!(
-  process.env.KV_URL &&
-  process.env.KV_REST_API_URL &&
-  process.env.KV_REST_API_TOKEN
-);
+// Check if Google Apps Script environment variables are actually configured in the environment (on server-side)
+export const isKVConfigured = !!process.env.GAS_WEBHOOK_URL;
 
 export async function checkServerKVStatus(): Promise<boolean> {
   try {
@@ -24,7 +20,7 @@ export async function fetchTasksFromServer(): Promise<any[]> {
     const data = await res.json();
     return data.tasks || [];
   } catch (error) {
-    console.error("Error fetching tasks from Vercel KV:", error);
+    console.error("Error fetching tasks from Google Spreadsheet (GAS):", error);
     return [];
   }
 }
@@ -40,7 +36,8 @@ export async function saveTasksToServer(tasks: any[]): Promise<boolean> {
     });
     return res.ok;
   } catch (error) {
-    console.error("Error saving tasks to Vercel KV:", error);
+    console.error("Error saving tasks to Google Spreadsheet (GAS):", error);
     return false;
   }
 }
+

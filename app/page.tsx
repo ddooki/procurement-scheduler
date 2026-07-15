@@ -288,7 +288,7 @@ export default function App() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dbStatus, setDbStatus] = useState<"LOCAL" | "VERCEL_KV">("LOCAL");
+  const [dbStatus, setDbStatus] = useState<"LOCAL" | "GAS">("LOCAL");
 
   // Deletion Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -311,12 +311,12 @@ export default function App() {
       let loadedTasks: Task[] = [];
       let themeMode = "light";
 
-      // Vercel KV connection check (runs on Vercel deployment)
+      // Google Apps Script connection check (runs on deployment)
       if (typeof window !== "undefined") {
         try {
           const isConfigured = await checkServerKVStatus();
           if (isConfigured) {
-            setDbStatus("VERCEL_KV");
+            setDbStatus("GAS");
             const serverTasks = await fetchTasksFromServer();
             if (serverTasks && serverTasks.length > 0) {
               loadedTasks = serverTasks;
@@ -391,14 +391,14 @@ export default function App() {
     setTasks(newTasks);
     setLastSaved(new Date());
 
-    // Sync to Vercel KV if available
+    // Sync to Google Spreadsheet if available
     try {
       await saveTasksToServer(newTasks);
-      if (process.env.NODE_ENV === "production" || dbStatus === "VERCEL_KV") {
-        setDbStatus("VERCEL_KV");
+      if (process.env.NODE_ENV === "production" || dbStatus === "GAS") {
+        setDbStatus("GAS");
       }
     } catch (e) {
-      console.error("Failed to sync with Vercel KV:", e);
+      console.error("Failed to sync with Google Spreadsheet:", e);
     }
     
     // Always keep localStorage updated as well
@@ -744,7 +744,7 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center text-primary font-bold">
-        로딩 중... ({dbStatus === "VERCEL_KV" ? "서버 동기화" : "로컬 모드"})
+        로딩 중... ({dbStatus === "GAS" ? "구글 스프레드시트 동기화" : "로컬 모드"})
       </div>
     );
   }
@@ -811,8 +811,8 @@ export default function App() {
         <div className="p-4 border-t border-border/50 flex flex-col gap-4">
           <div className="flex justify-between items-center px-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-              <CheckCircle className={`w-3.5 h-3.5 ${dbStatus === "VERCEL_KV" ? "text-primary" : "text-amber-500"}`} />
-              <span>{dbStatus === "VERCEL_KV" ? "Vercel KV 동기화됨" : "로컬 브라우저 저장"}</span>
+              <CheckCircle className={`w-3.5 h-3.5 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
+              <span>{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
             </div>
             <button
               onClick={toggleTheme}
@@ -1334,13 +1334,13 @@ export default function App() {
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
                       <h3 className="font-headline text-xl font-bold mb-2">서버 연결 상태</h3>
                       <p className="text-sm text-on-surface-variant mb-4">
-                        {dbStatus === "VERCEL_KV"
-                          ? "Vercel KV 클라우드 데이터베이스에 정상 연동되었습니다. Vercel 배포 주소 및 다른 기기에서도 데이터가 완벽히 실시간 연동됩니다."
-                          : "로컬 오프라인 모드입니다. Vercel 프로젝트 대시보드에서 Storage -> KV (Redis) 데이터베이스를 클릭 몇 번으로 연동해 주기만 하면, 환경 변수가 자동으로 주입되어 클라우드 연동 모드로 전환됩니다."}
+                        {dbStatus === "GAS"
+                          ? "구글 스프레드시트 데이터베이스에 정상 연동되었습니다. 스프레드시트의 행과 실시간 동기화되어 언제든 데이터를 시각적으로 확인하고 직접 편집할 수 있습니다."
+                          : "로컬 오프라인 모드입니다. 구글 스프레드시트의 웹 앱 URL을 환경 변수 GAS_WEBHOOK_URL로 등록하시면 클라우드 연동 모드로 전환됩니다."}
                       </p>
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-variant text-sm font-bold border border-border">
-                        <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "VERCEL_KV" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
-                        <span>{dbStatus === "VERCEL_KV" ? "Vercel KV 연동 완료" : "로컬 브라우저 저장 모드"}</span>
+                        <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "GAS" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
+                        <span>{dbStatus === "GAS" ? "구글 스프레드시트 연동 완료" : "로컬 브라우저 저장 모드"}</span>
                       </div>
                     </div>
 
