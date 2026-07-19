@@ -427,6 +427,65 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
+  const handleExportExcelCSV = () => {
+    const headers = ["일정명", "구분", "시작일", "종료일", "상태", "상세 설명", "반복 주기", "연쇄 업무명", "생성일시"];
+    
+    const typeLabels: Record<string, string> = {
+      MEETING: "미팅",
+      BID: "입찰",
+      SUBMISSION: "업무 제출",
+      GENERAL: "일반",
+      HOLIDAY: "휴일",
+      COMPANY_HOLIDAY: "지정연차",
+      PERSONAL_LEAVE: "연차/휴가",
+    };
+
+    const statusLabels: Record<string, string> = {
+      TODO: "진행 대기",
+      IN_PROGRESS: "진행중",
+      DONE: "완료",
+    };
+
+    const recurrenceLabels: Record<string, string> = {
+      NONE: "없음",
+      WEEKLY: "매주",
+      MONTHLY: "매월",
+      QUARTERLY: "분기별",
+      SEMI_ANNUALLY: "반기별",
+      ANNUALLY: "매년",
+    };
+
+    const rows = tasks.map(t => {
+      const startDateStr = t.startDate ? format(parseISO(t.startDate), "yyyy-MM-dd HH:mm") : format(parseISO(t.deadline), "yyyy-MM-dd HH:mm");
+      const endDateStr = t.endDate ? format(parseISO(t.endDate), "yyyy-MM-dd HH:mm") : format(parseISO(t.deadline), "yyyy-MM-dd HH:mm");
+      const createdAtStr = t.createdAt ? format(parseISO(t.createdAt), "yyyy-MM-dd HH:mm:ss") : "";
+      
+      return [
+        t.title.replace(/"/g, '""'),
+        typeLabels[t.type] || t.type,
+        startDateStr,
+        endDateStr,
+        statusLabels[t.status] || t.status,
+        (t.description || "").replace(/"/g, '""'),
+        recurrenceLabels[t.recurrence || "NONE"] || "없음",
+        t.chainName || "",
+        createdAtStr
+      ];
+    });
+
+    const csvContent = "\uFEFF" + 
+      [headers.join(","), ...rows.map(row => row.map(val => `"${val}"`).join(","))].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const dateStr = format(new Date(), "yyyyMMdd_HHmmss");
+    a.download = `외주구매팀_업무관리표_${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExportData = () => {
     const data = {
       tasks,
@@ -1393,17 +1452,26 @@ export default function App() {
                         </div>
                         <div>
                           <h3 className="font-headline text-xl font-bold">오프라인 데이터 내보내기</h3>
-                          <p className="text-sm text-on-surface-variant">모든 일정을 메모장(.txt) 파일로 저장합니다.</p>
+                          <p className="text-sm text-on-surface-variant">모든 일정을 엑셀(CSV) 파일 또는 시스템 복구용 백업 파일로 저장합니다.</p>
                         </div>
                       </div>
 
-                      <button
-                        onClick={handleExportData}
-                        className="mt-4 px-6 py-3 bg-surface-variant hover:bg-border text-on-surface font-bold rounded-xl flex items-center gap-2 transition-colors w-full md:w-auto"
-                      >
-                        <Download className="w-5 h-5" />
-                        데이터 백업 다운로드
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                        <button
+                          onClick={handleExportExcelCSV}
+                          className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                        >
+                          <Download className="w-5 h-5" />
+                          엑셀(CSV) 파일 다운로드
+                        </button>
+                        <button
+                          onClick={handleExportData}
+                          className="px-6 py-3 bg-surface-variant hover:bg-border text-on-surface font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                        >
+                          <Download className="w-5 h-5" />
+                          시스템 백업 파일 다운로드 (JSON)
+                        </button>
+                      </div>
                     </div>
 
                     {/* Restore Section */}
