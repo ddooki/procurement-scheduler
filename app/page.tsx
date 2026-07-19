@@ -487,6 +487,47 @@ export default function App() {
     e.target.value = ""; // Reset
   };
 
+  const handleImportFromVercelKV = async () => {
+    if (!confirm("Vercel KV에서 데이터를 조회하여 현재 일정 목록과 병합(중복되지 않는 일정 추가)하시겠습니까?")) return;
+    try {
+      const res = await fetch("/api/backup-vercel-kv");
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(`오류: ${errorData.error || "Vercel KV 데이터를 가져올 수 없습니다."}`);
+        return;
+      }
+      const data = await res.json();
+      if (!data.success) {
+        alert(`오류: ${data.error}`);
+        return;
+      }
+      const importedTasks = data.tasks;
+      if (!importedTasks || importedTasks.length === 0) {
+        alert("가져올 일정이 없습니다. Vercel KV가 비어 있습니다.");
+        return;
+      }
+
+      // Merge
+      const mergedTasks = [...tasks];
+      let addedCount = 0;
+      importedTasks.forEach((importTask: Task) => {
+        const index = mergedTasks.findIndex(t => t.id === importTask.id);
+        if (index !== -1) {
+          mergedTasks[index] = importTask;
+        } else {
+          mergedTasks.push(importTask);
+          addedCount++;
+        }
+      });
+
+      await saveTasksState(mergedTasks);
+      alert(`성공적으로 Vercel KV에서 데이터를 가져왔습니다! (새로운 일정 ${addedCount}개 병합됨)`);
+    } catch (e) {
+      console.error(e);
+      alert("서버 통신 중 에러가 발생했습니다. Vercel KV 환경 변수가 로컬 혹은 프로덕션 서버에 설정되어 있는지 확인해주세요.");
+    }
+  };
+
   const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     let updatedTasks = [...tasks];
     let targetId = "";
@@ -1392,6 +1433,27 @@ export default function App() {
                       <p className="text-xs text-on-surface-variant mt-3 font-semibold text-primary">
                         * 알림: 기존 저장되어 있는 데이터는 삭제되지 않으며 병합됩니다.
                       </p>
+                    </div>
+
+                    {/* Vercel KV Import Section */}
+                    <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-primary-container text-primary rounded-xl flex items-center justify-center">
+                          <RefreshCcw className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-headline text-xl font-bold">이전 Vercel KV 데이터 복원</h3>
+                          <p className="text-sm text-on-surface-variant">Vercel KV 클라우드에 기존 저장되어 있던 일정을 불러와 현재 일정에 합칩니다.</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleImportFromVercelKV}
+                        className="mt-4 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center gap-2 transition-colors w-full md:w-auto"
+                      >
+                        <RefreshCcw className="w-5 h-5" />
+                        Vercel KV에서 일정 가져오기
+                      </button>
                     </div>
 
                     {/* Purge / Clear Database section */}
