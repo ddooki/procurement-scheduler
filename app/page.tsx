@@ -2490,30 +2490,34 @@ function TaskForm({
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mt-2 pt-3 border-t border-border flex-shrink-0 items-stretch sm:items-center">
-        {onDelete &&
-          (showDeleteConfirm ? (
-            <div className="flex items-center gap-3 bg-error-container/30 px-3 h-[48px] rounded-xl border border-error/50 w-full sm:w-[160px] justify-center">
-              <span className="text-xs font-bold text-error">삭제하시겠습니까?</span>
-              <button type="button" onClick={onDelete} className="text-error hover:underline text-sm font-bold px-1 min-h-[40px] flex items-center justify-center">네</button>
-              <span className="text-error/30">|</span>
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="text-on-surface-variant hover:underline text-sm px-1 min-h-[40px] flex items-center justify-center">아니오</button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="h-[48px] w-full sm:w-[160px] rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Trash2 className="w-4.5 h-4.5" />
-              <span className="text-xs font-bold">삭제하기</span>
-            </button>
-          ))}
-        <div className="flex gap-2 w-full flex-1">
-          <button type="button" onClick={onCancel} className="flex-1 h-[48px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
+      <div className="flex flex-col sm:flex-row gap-2 mt-2 pt-3 border-t border-border flex-shrink-0 items-center justify-between">
+        {onDelete && (
+          <div className="w-full sm:w-auto">
+            {showDeleteConfirm ? (
+              <div className="flex items-center justify-between gap-2 bg-error-container/30 px-3 h-[42px] rounded-xl border border-error/50 w-full whitespace-nowrap">
+                <span className="text-xs font-bold text-error">삭제하시겠습니까?</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={onDelete} className="text-error hover:underline text-xs font-bold px-1.5 py-0.5 rounded bg-error-container/50">네</button>
+                  <button type="button" onClick={() => setShowDeleteConfirm(false)} className="text-on-surface-variant hover:underline text-xs px-1.5 py-0.5 rounded bg-surface">아니오</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="h-[42px] px-3 w-full sm:w-auto rounded-xl border border-error text-error hover:bg-error-container/20 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-xs font-bold">삭제</span>
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+          <button type="button" onClick={onCancel} className="flex-1 sm:w-28 h-[42px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
             취소
           </button>
-          <button type="submit" className="flex-1 h-[48px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
+          <button type="submit" className="flex-1 sm:w-36 h-[42px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
             {initialData ? "저장하기" : "등록하기"}
           </button>
         </div>
