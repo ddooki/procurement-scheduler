@@ -32,6 +32,8 @@ import {
   CheckSquare,
   History,
   Pencil,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import {
   format,
@@ -289,6 +291,8 @@ export default function App() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "GAS">("LOCAL");
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Deletion Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -759,81 +763,104 @@ export default function App() {
   return (
     <div className="flex h-[100dvh] bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
       {/* Left Navigation */}
-      <nav className="w-64 flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex">
-        <div className="p-6 pb-8 border-b border-border/50">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+      <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-16"}`}>
+        {/* Toggle Button in middle-right edge of sidebar */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-surface border border-border text-on-surface-variant hover:text-primary hover:bg-surface-variant flex items-center justify-center shadow-md transition-transform hover:scale-110"
+          title={isSidebarOpen ? "메뉴바 접기" : "메뉴바 펼치기"}
+        >
+          {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+
+        <div className={`p-4 border-b border-border/50 ${isSidebarOpen ? "p-6 pb-8" : "flex justify-center"}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
               <ClipboardList className="w-6 h-6" />
             </div>
-            <div>
-              <h1 className="font-headline text-xl font-bold text-primary leading-tight">
-                업무관리표
-              </h1>
-              <p className="text-xs text-on-surface-variant font-medium">
-                외주구매팀
-              </p>
-            </div>
+            {isSidebarOpen && (
+              <div className="min-w-0">
+                <h1 className="font-headline text-xl font-bold text-primary leading-tight truncate">
+                  업무관리표
+                </h1>
+                <p className="text-xs text-on-surface-variant font-medium truncate">
+                  외주구매팀
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           <NavItem
-            icon={<CalendarIcon className="w-5 h-5" />}
+            icon={<CalendarIcon className="w-5 h-5 flex-shrink-0" />}
             label="캘린더"
             isActive={activeTab === "calendar"}
             onClick={() => setActiveTab("calendar")}
+            isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<LayoutDashboard className="w-5 h-5" />}
+            icon={<LayoutDashboard className="w-5 h-5 flex-shrink-0" />}
             label="대시보드"
             isActive={activeTab === "dashboard"}
             onClick={() => setActiveTab("dashboard")}
+            isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<ClipboardList className="w-5 h-5" />}
+            icon={<ClipboardList className="w-5 h-5 flex-shrink-0" />}
             label="작업현황"
             isActive={activeTab === "tasks"}
             onClick={() => setActiveTab("tasks")}
+            isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<GitMerge className="w-5 h-5 text-tertiary" />}
+            icon={<GitMerge className="w-5 h-5 text-tertiary flex-shrink-0" />}
             label="연쇄 업무 설정"
             isActive={activeTab === "workflows"}
             onClick={() => setActiveTab("workflows")}
+            isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<History className="w-5 h-5 text-primary" />}
+            icon={<History className="w-5 h-5 text-primary flex-shrink-0" />}
             label="주기별 업무 관리"
             isActive={activeTab === "periodic"}
             onClick={() => setActiveTab("periodic")}
+            isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<SettingsIcon className="w-5 h-5" />}
+            icon={<SettingsIcon className="w-5 h-5 flex-shrink-0" />}
             label="설정 및 백업"
             isActive={activeTab === "settings"}
             onClick={() => setActiveTab("settings")}
+            isCollapsed={!isSidebarOpen}
           />
         </div>
 
-        <div className="p-4 border-t border-border/50 flex flex-col gap-4">
-          <div className="flex justify-between items-center px-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-              <CheckCircle className={`w-3.5 h-3.5 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
-              <span>{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
-            </div>
+        <div className="p-3 border-t border-border/50 flex flex-col gap-3">
+          <div className={`flex items-center ${isSidebarOpen ? "justify-between px-1" : "justify-center"}`}>
+            {isSidebarOpen && (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate">
+                <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
+                <span className="truncate">{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
+              </div>
+            )}
             <button
               onClick={toggleTheme}
-              className="p-1 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors"
+              className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex-shrink-0"
+              title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
           </div>
           <button
             onClick={() => openNewTaskModal()}
-            className="relative w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
+            title={!isSidebarOpen ? "일정 추가" : undefined}
+            className={`relative w-full py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm ${
+              isSidebarOpen ? "px-4" : "px-0"
+            }`}
           >
-            <Plus className="absolute left-5 w-5 h-5" />
-            <span>일정 추가</span>
+            <Plus className={`${isSidebarOpen ? "absolute left-5" : ""} w-5 h-5`} />
+            {isSidebarOpen && <span>일정 추가</span>}
           </button>
         </div>
       </nav>
@@ -1081,7 +1108,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="h-full flex flex-col pb-6 max-w-6xl mx-auto w-full"
+                  className="h-full flex flex-col pb-6 w-full"
                 >
                   <div className="mb-6 flex-shrink-0">
                     <h2 className="font-headline text-3xl font-bold mb-1">캘린더</h2>
@@ -1745,21 +1772,24 @@ function NavItem({
   label,
   isActive,
   onClick,
+  isCollapsed = false,
 }: {
   icon: React.ReactNode;
   label: string;
   isActive: boolean;
   onClick: () => void;
+  isCollapsed?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${
+      title={isCollapsed ? label : undefined}
+      className={`w-full flex items-center ${isCollapsed ? "justify-center px-2" : "gap-3 px-4"} py-3 rounded-xl transition-colors font-medium ${
         isActive ? "bg-primary-container text-on-primary-container font-bold" : "text-on-surface-variant hover:bg-surface-variant"
       }`}
     >
       {icon}
-      {label}
+      {!isCollapsed && <span>{label}</span>}
     </button>
   );
 }
@@ -2847,7 +2877,7 @@ function FullCalendar({
               {!hideWeekends && <div className="text-blue-500">토</div>}
             </div>
 
-            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 flex-1 auto-rows-[minmax(60px,_1fr)] sm:auto-rows-[minmax(80px,_1fr)] overflow-y-auto pr-1 pb-2 px-1 cell-scroll`}>
+            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 flex-1 auto-rows-[minmax(90px,_1fr)] sm:auto-rows-[minmax(115px,_1fr)] overflow-y-auto pr-1 pb-2 px-1 cell-scroll`}>
               {paddingDays.map((i) => (
                 <div key={`pad-${i}`} className="p-1 rounded-lg bg-surface/30" />
               ))}
@@ -2890,19 +2920,19 @@ function FullCalendar({
                     onClick={() => {
                       onSelectDate(isSel ? null : day);
                     }}
-                    className={`p-1 sm:p-2 rounded-xl bg-surface border ${
+                    className={`p-1.5 sm:p-2.5 rounded-xl bg-surface border ${
                       isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
-                    } flex flex-col min-h-[60px] sm:min-h-[80px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
+                    } flex flex-col min-h-[90px] sm:min-h-[115px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
                   >
-                    <div className={`text-xs sm:text-sm font-bold mb-1 flex items-center justify-between ${
+                    <div className={`text-xs sm:text-base font-bold mb-1.5 flex items-center justify-between ${
                       isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
                     }`}>
                       <span>{format(day, "d")}</span>
                       {isT && (
-                        <span className="text-[8px] font-bold px-1 py-0.2 rounded-full bg-primary text-on-primary">오늘</span>
+                        <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
                       )}
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-1 cell-scroll hidden sm:block">
+                    <div className="flex-1 overflow-y-auto space-y-1.5 cell-scroll hidden sm:block">
                       {dayTasks.map((t) => (
                         <div
                           key={t.id}
@@ -2911,10 +2941,10 @@ function FullCalendar({
                             onEditTask(t);
                           }}
                           style={{ backgroundColor: t.color || "#4a7c59" }}
-                          className="text-white text-[9px] font-medium px-1 py-0.5 rounded truncate leading-tight shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                          className="text-white text-xs sm:text-[13px] font-semibold px-2 py-1 rounded-md truncate leading-snug shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                           title={t.title}
                         >
-                          <span className={t.status === "DONE" ? "line-through opacity-70" : ""}>{t.title}</span>
+                          <span className={t.status === "DONE" ? "line-through opacity-75" : ""}>{t.title}</span>
                         </div>
                       ))}
                     </div>
