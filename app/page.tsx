@@ -429,47 +429,47 @@ export default function App() {
   };
 
   const handleExportExcelCSV = () => {
-    const headers = ["일정명", "구분", "시작일", "종료일", "상태", "상세 설명", "반복 주기", "연쇄 업무명", "생성일시"];
+    const headers = [
+      "ID", "제목", "구분", "상태", "색상",
+      "시작일(년/월/일)", "시작시간",
+      "종료일(년/월/일)", "종료시간",
+      "마감기한(년/월/일)", "마감시간",
+      "상세설명", "반복주기", "연쇄업무명", "부모ID", "이전업무ID", "다음업무ID", "완료일시", "생성일시"
+    ];
     
-    const typeLabels: Record<string, string> = {
-      MEETING: "미팅",
-      BID: "입찰",
-      SUBMISSION: "업무 제출",
-      GENERAL: "일반",
-      HOLIDAY: "휴일",
-      COMPANY_HOLIDAY: "지정연차",
-      PERSONAL_LEAVE: "연차/휴가",
-    };
-
-    const statusLabels: Record<string, string> = {
-      TODO: "진행 대기",
-      IN_PROGRESS: "진행중",
-      DONE: "완료",
-    };
-
-    const recurrenceLabels: Record<string, string> = {
-      NONE: "없음",
-      WEEKLY: "매주",
-      MONTHLY: "매월",
-      QUARTERLY: "분기별",
-      SEMI_ANNUALLY: "반기별",
-      ANNUALLY: "매년",
-    };
-
     const rows = tasks.map(t => {
-      const startDateStr = t.startDate ? format(parseISO(t.startDate), "yyyy-MM-dd HH:mm") : format(parseISO(t.deadline), "yyyy-MM-dd HH:mm");
-      const endDateStr = t.endDate ? format(parseISO(t.endDate), "yyyy-MM-dd HH:mm") : format(parseISO(t.deadline), "yyyy-MM-dd HH:mm");
+      const start = t.startDate ? parseISO(t.startDate) : (t.deadline ? parseISO(t.deadline) : null);
+      const end = t.endDate ? parseISO(t.endDate) : (t.deadline ? parseISO(t.deadline) : null);
+      const dead = t.deadline ? parseISO(t.deadline) : null;
+      
+      const startDateStr = start ? format(start, "yyyy.MM.dd") : "";
+      const startTimeStr = start ? (format(start, "HH:mm") === "00:00" ? "-" : format(start, "HH:mm")) : "-";
+      const endDateStr = end ? format(end, "yyyy.MM.dd") : "";
+      const endTimeStr = end ? (format(end, "HH:mm") === "00:00" ? "-" : format(end, "HH:mm")) : "-";
+      const deadlineDateStr = dead ? format(dead, "yyyy.MM.dd") : "";
+      const deadlineTimeStr = dead ? (format(dead, "HH:mm") === "00:00" ? "-" : format(dead, "HH:mm")) : "-";
+      const completedAtStr = t.completedAt ? format(parseISO(t.completedAt), "yyyy-MM-dd HH:mm:ss") : "";
       const createdAtStr = t.createdAt ? format(parseISO(t.createdAt), "yyyy-MM-dd HH:mm:ss") : "";
       
       return [
-        t.title.replace(/"/g, '""'),
-        typeLabels[t.type] || t.type,
+        t.id || "",
+        (t.title || "").replace(/"/g, '""'),
+        t.type || "GENERAL",
+        t.status || "TODO",
+        t.color || "",
         startDateStr,
+        startTimeStr,
         endDateStr,
-        statusLabels[t.status] || t.status,
+        endTimeStr,
+        deadlineDateStr,
+        deadlineTimeStr,
         (t.description || "").replace(/"/g, '""'),
-        recurrenceLabels[t.recurrence || "NONE"] || "없음",
+        t.recurrence || "NONE",
         t.chainName || "",
+        t.parentId || "",
+        t.prevTaskId || "",
+        t.nextTaskId || "",
+        completedAtStr,
         createdAtStr
       ];
     });
@@ -487,104 +487,10 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportData = () => {
-    const data = {
-      tasks,
-      theme: isDarkMode ? "dark" : "light",
-      exportedAt: new Date().toISOString(),
-    };
-    const jsonStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const dateStr = format(new Date(), "yyyyMMdd_HHmmss");
-    a.download = `외주구매팀_업무관리표_${dateStr}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Merge Backup instead of Overwriting
-  const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const content = event.target?.result as string;
-        const parsed = JSON.parse(content);
-        if (parsed.tasks) {
-          // Merge logic: Add tasks that do not already exist in the state by checking task ID
-          const mergedTasks = [...tasks];
-          let addedCount = 0;
-          parsed.tasks.forEach((importTask: Task) => {
-            const index = mergedTasks.findIndex(t => t.id === importTask.id);
-            if (index !== -1) {
-              // Update existing tasks with same ID
-              mergedTasks[index] = importTask;
-            } else {
-              // Add new tasks
-              mergedTasks.push(importTask);
-              addedCount++;
-            }
-          });
-
-          await saveTasksState(mergedTasks);
-          if (parsed.theme === "dark") {
-            setIsDarkMode(true);
-            document.documentElement.classList.add("dark");
-          } else {
-            setIsDarkMode(false);
-            document.documentElement.classList.remove("dark");
-          }
-          alert(`데이터를 성공적으로 합쳤습니다. (새로운 일정 ${addedCount}개 추가됨)`);
-        }
-      } catch (error) {
-        alert("잘못된 파일 형식입니다.");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = ""; // Reset
-  };
-
-  const handleImportFromVercelKV = async () => {
-    if (!confirm("Vercel KV에서 데이터를 조회하여 현재 일정 목록과 병합(중복되지 않는 일정 추가)하시겠습니까?")) return;
-    try {
-      const res = await fetch("/api/backup-vercel-kv");
-      if (!res.ok) {
-        const errorData = await res.json();
-        alert(`오류: ${errorData.error || "Vercel KV 데이터를 가져올 수 없습니다."}`);
-        return;
-      }
-      const data = await res.json();
-      if (!data.success) {
-        alert(`오류: ${data.error}`);
-        return;
-      }
-      const importedTasks = data.tasks;
-      if (!importedTasks || importedTasks.length === 0) {
-        alert("가져올 일정이 없습니다. Vercel KV가 비어 있습니다.");
-        return;
-      }
-
-      // Merge
-      const mergedTasks = [...tasks];
-      let addedCount = 0;
-      importedTasks.forEach((importTask: Task) => {
-        const index = mergedTasks.findIndex(t => t.id === importTask.id);
-        if (index !== -1) {
-          mergedTasks[index] = importTask;
-        } else {
-          mergedTasks.push(importTask);
-          addedCount++;
-        }
-      });
-
-      await saveTasksState(mergedTasks);
-      alert(`성공적으로 Vercel KV에서 데이터를 가져왔습니다! (새로운 일정 ${addedCount}개 병합됨)`);
-    } catch (e) {
-      console.error(e);
-      alert("서버 통신 중 에러가 발생했습니다. Vercel KV 환경 변수가 로컬 혹은 프로덕션 서버에 설정되어 있는지 확인해주세요.");
+  const handleClearData = async () => {
+    if (confirm("정말 구글 스프레드시트 및 로컬의 모든 일정을 초기화하시겠습니까? 삭제 후에는 복구할 수 없습니다.")) {
+      await saveTasksState([]);
+      alert("모든 일정 데이터가 초기화되었습니다.");
     }
   };
 
@@ -1453,7 +1359,7 @@ export default function App() {
                         </div>
                         <div>
                           <h3 className="font-headline text-xl font-bold">오프라인 데이터 내보내기</h3>
-                          <p className="text-sm text-on-surface-variant">모든 일정을 엑셀(CSV) 파일 또는 시스템 복구용 백업 파일로 저장합니다.</p>
+                          <p className="text-sm text-on-surface-variant">구글 스프레드시트 양식과 동일한 형태로 전체 일정을 엑셀(CSV) 파일로 저장합니다.</p>
                         </div>
                       </div>
 
@@ -1465,64 +1371,7 @@ export default function App() {
                           <Download className="w-5 h-5" />
                           엑셀(CSV) 파일 다운로드
                         </button>
-                        <button
-                          onClick={handleExportData}
-                          className="px-6 py-3 bg-surface-variant hover:bg-border text-on-surface font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
-                        >
-                          <Download className="w-5 h-5" />
-                          시스템 백업 파일 다운로드 (JSON)
-                        </button>
                       </div>
-                    </div>
-
-                    {/* Restore Section */}
-                    <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-surface-variant text-on-surface rounded-xl flex items-center justify-center">
-                          <Upload className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-headline text-xl font-bold">백업 파일 불러오기 (데이터 합치기)</h3>
-                          <p className="text-sm text-on-surface-variant">이전에 저장한 백업 파일을 불러와 현재 기존 일정에 더합니다.</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 relative overflow-hidden">
-                        <input
-                          type="file"
-                          accept=".txt,.json"
-                          onChange={handleImportData}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <button className="px-6 py-3 border-2 border-dashed border-border hover:border-primary text-on-surface font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full">
-                          <Upload className="w-5 h-5" />
-                          백업 파일 선택
-                        </button>
-                      </div>
-                      <p className="text-xs text-on-surface-variant mt-3 font-semibold text-primary">
-                        * 알림: 기존 저장되어 있는 데이터는 삭제되지 않으며 병합됩니다.
-                      </p>
-                    </div>
-
-                    {/* Vercel KV Import Section */}
-                    <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-primary-container text-primary rounded-xl flex items-center justify-center">
-                          <RefreshCcw className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="font-headline text-xl font-bold">이전 Vercel KV 데이터 복원</h3>
-                          <p className="text-sm text-on-surface-variant">Vercel KV 클라우드에 기존 저장되어 있던 일정을 불러와 현재 일정에 합칩니다.</p>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleImportFromVercelKV}
-                        className="mt-4 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center gap-2 transition-colors w-full md:w-auto"
-                      >
-                        <RefreshCcw className="w-5 h-5" />
-                        Vercel KV에서 일정 가져오기
-                      </button>
                     </div>
 
                     {/* Purge / Clear Database section */}
@@ -1532,8 +1381,8 @@ export default function App() {
                           <Trash2 className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="font-headline text-xl font-bold text-error">Vercel KV 전체 데이터 초기화</h3>
-                          <p className="text-sm text-on-surface-variant">클라우드 서버 및 로컬 브라우저의 모든 데이터(일정)를 완전히 영구적으로 삭제합니다.</p>
+                          <h3 className="font-headline text-xl font-bold text-error">전체 데이터 초기화</h3>
+                          <p className="text-sm text-on-surface-variant">구글 스프레드시트 및 로컬 브라우저의 모든 일정 데이터를 영구적으로 비웁니다.</p>
                         </div>
                       </div>
 
