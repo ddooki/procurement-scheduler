@@ -317,11 +317,29 @@ export default function App() {
           const isConfigured = await checkServerKVStatus();
           if (isConfigured) {
             setDbStatus("GAS");
-            const serverTasks = await fetchTasksFromServer();
+            let serverTasks = await fetchTasksFromServer();
+            
+            // If GAS is empty, try fetching from Vercel KV as backup migration
+            if (!serverTasks || serverTasks.length === 0) {
+              try {
+                const kvRes = await fetch("/api/backup-vercel-kv");
+                if (kvRes.ok) {
+                  const kvData = await kvRes.json();
+                  if (kvData.success && kvData.tasks && kvData.tasks.length > 0) {
+                    serverTasks = kvData.tasks;
+                    // Auto-sync existing Vercel KV tasks to Google Spreadsheet!
+                    await saveTasksToServer(serverTasks);
+                  }
+                }
+              } catch (err) {
+                console.warn("Vercel KV auto-backup check failed:", err);
+              }
+            }
+
             if (serverTasks && serverTasks.length > 0) {
               loadedTasks = serverTasks;
             } else {
-              // If KV is configured but empty, populate with local storage if available
+              // If both GAS and Vercel KV are empty, check localStorage
               const saved = localStorage.getItem(STORAGE_KEY);
               if (saved) {
                 const parsed = JSON.parse(saved);
