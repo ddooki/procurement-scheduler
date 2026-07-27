@@ -36,6 +36,7 @@ import {
   PanelLeftOpen,
   FileText,
   Search,
+  Copy,
 } from "lucide-react";
 import {
   format,
@@ -379,6 +380,37 @@ export default function App() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [noteContent, setNoteContent] = useState("");
   const [noteColor, setNoteColor] = useState(NOTE_COLORS[0]);
+
+  // Task Context Menu States (Windows-style Right Click)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    task: Task;
+  } | null>(null);
+
+  // Close context menu on window click
+  useEffect(() => {
+    const handleWindowClick = () => setContextMenu(null);
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
+  }, []);
+
+  const handleDuplicateTask = async (taskToDuplicate: Task) => {
+    const newId = crypto.randomUUID();
+    const duplicatedTask: Task = {
+      ...taskToDuplicate,
+      id: newId,
+      title: `${taskToDuplicate.title} (복사본)`,
+      status: "TODO",
+      createdAt: new Date().toISOString(),
+      completedAt: undefined,
+      nextTaskId: undefined,
+      prevTaskId: undefined,
+      parentId: undefined,
+    };
+    const updatedTasks = [duplicatedTask, ...tasks];
+    await saveTasksState(updatedTasks);
+  };
 
   // Load Tasks and Notes
   useEffect(() => {
@@ -1178,6 +1210,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       onRescheduleTask={openRescheduleTaskModal}
+                      onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="TODO"
                       accent="bg-border"
                     />
@@ -1187,6 +1220,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       onRescheduleTask={openRescheduleTaskModal}
+                      onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="IN_PROGRESS"
                       accent="bg-tertiary"
                     />
@@ -1200,6 +1234,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       onUpdateStatus={updateTaskStatus}
                       onEditTask={openEditTaskModal}
                       onRescheduleTask={openRescheduleTaskModal}
+                      onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="DONE"
                       accent="bg-primary"
                     />
@@ -1219,6 +1254,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                     <FullCalendar
                       tasks={tasks}
                       onEditTask={openEditTaskModal}
+                      onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       onAddTask={(date) => {
                         setEditingTask({
                           id: "",
@@ -2346,9 +2382,92 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             </div>
           )}
         </AnimatePresence>
+
+        {/* Windows-style Right Click Context Menu */}
+        <AnimatePresence>
+          {contextMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.1 }}
+              style={{
+                top: Math.min(contextMenu.y, typeof window !== "undefined" ? window.innerHeight - 240 : contextMenu.y),
+                left: Math.min(contextMenu.x, typeof window !== "undefined" ? window.innerWidth - 200 : contextMenu.x),
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="fixed z-[999] w-48 bg-surface/95 backdrop-blur-md rounded-xl border border-border shadow-2xl py-1.5 text-xs text-on-surface flex flex-col font-medium"
+            >
+              <div className="px-3 py-1.5 font-bold border-b border-border/50 text-on-surface-variant truncate text-[11px]">
+                {contextMenu.task.title}
+              </div>
+
+              <button
+                onClick={() => {
+                  openEditTaskModal(contextMenu.task);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-primary-container/40 hover:text-primary transition-colors flex items-center gap-2 font-bold"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                상세보기 / 수정
+              </button>
+
+              <button
+                onClick={async () => {
+                  await handleDuplicateTask(contextMenu.task);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-primary-container/40 hover:text-primary transition-colors flex items-center gap-2 font-bold"
+              >
+                <Copy className="w-3.5 h-3.5 text-amber-500" />
+                일정 복제하기 (Duplicate)
+              </button>
+
+              <button
+                onClick={() => {
+                  openRescheduleTaskModal(contextMenu.task);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-surface-variant transition-colors flex items-center gap-2"
+              >
+                <Clock className="w-3.5 h-3.5 text-tertiary" />
+                일정 미루기 / 날짜 변경
+              </button>
+
+              <div className="border-t border-border/50 my-1" />
+
+              <button
+                onClick={async () => {
+                  const newStatus = contextMenu.task.status === "DONE" ? "TODO" : "DONE";
+                  await updateTaskStatus(contextMenu.task.id, newStatus);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-surface-variant transition-colors flex items-center gap-2"
+              >
+                <Check className="w-3.5 h-3.5 text-primary" />
+                {contextMenu.task.status === "DONE" ? "다시 미완료로 변경" : "완료 처리"}
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (confirm(`'${contextMenu.task.title}' 일정을 삭제하시겠습니까?`)) {
+                    const remaining = tasks.filter((t) => t.id !== contextMenu.task.id);
+                    await saveTasksState(remaining);
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-error-container/40 text-error transition-colors flex items-center gap-2 font-bold"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                일정 삭제
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
-  }
+}
 
 // Subcomponents
 
@@ -2425,6 +2544,7 @@ function TaskColumn({
   onUpdateStatus,
   onEditTask,
   onRescheduleTask,
+  onContextMenu,
   status,
   accent,
 }: {
@@ -2433,6 +2553,7 @@ function TaskColumn({
   onUpdateStatus: (id: string, s: TaskStatus) => void;
   onEditTask: (t: Task) => void;
   onRescheduleTask?: (t: Task) => void;
+  onContextMenu?: (e: React.MouseEvent, t: Task) => void;
   status: TaskStatus;
   accent: string;
 }) {
@@ -2451,6 +2572,13 @@ function TaskColumn({
           <div
             key={task.id}
             onClick={() => onEditTask(task)}
+            onContextMenu={(e) => {
+              if (onContextMenu) {
+                e.preventDefault();
+                e.stopPropagation();
+                onContextMenu(e, task);
+              }
+            }}
             className="bg-surface p-4 rounded-xl shadow-sm border border-border hover:border-primary/50 cursor-pointer group relative transition-colors"
           >
             <div className="flex justify-between items-start mb-2">
@@ -3216,12 +3344,14 @@ function FullCalendar({
   onAddTask,
   selectedDate,
   onSelectDate,
+  onContextMenu,
 }: {
   tasks: Task[];
   onEditTask: (t: Task) => void;
   onAddTask: (date: Date) => void;
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
+  onContextMenu?: (e: React.MouseEvent, t: Task) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showSelector, setShowSelector] = useState(false);
@@ -3525,6 +3655,13 @@ function FullCalendar({
                             e.stopPropagation();
                             onEditTask(t);
                           }}
+                          onContextMenu={(e) => {
+                            if (onContextMenu) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onContextMenu(e, t);
+                            }
+                          }}
                           style={{ backgroundColor: t.color || "#4a7c59" }}
                           className="text-white text-xs sm:text-[13px] font-semibold px-2 py-1 rounded-md truncate leading-snug shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                           title={t.title}
@@ -3714,6 +3851,13 @@ function FullCalendar({
                           <div
                             key={t.id}
                             onClick={() => onEditTask(t)}
+                            onContextMenu={(e) => {
+                              if (onContextMenu) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onContextMenu(e, t);
+                              }
+                            }}
                             style={{ borderLeftColor: t.color || "#4a7c59" }}
                             className="p-4 rounded-xl border border-border bg-surface hover:bg-surface-variant/40 cursor-pointer transition-all border-l-4 shadow-sm hover:shadow-md flex flex-col gap-2.5 group"
                           >
