@@ -83,6 +83,25 @@ const safeFormat = (dateInput: Date | string | null | undefined, formatStr: stri
   }
 };
 
+const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
+  return rawTasks.map((t) => {
+    const deadlineDate = safeDate(t.deadline);
+    const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
+    const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
+    const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
+    const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+
+    return {
+      ...t,
+      deadline: deadlineDate.toISOString(),
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      completedAt,
+      createdAt,
+    };
+  });
+};
+
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL" | "HOLIDAY" | "COMPANY_HOLIDAY" | "PERSONAL_LEAVE";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type RecurrenceType = "NONE" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMI_ANNUALLY" | "ANNUALLY";
@@ -384,25 +403,24 @@ export default function App() {
         setDbStatus("LOCAL");
       }
 
-      // Helper to sanitize tasks and ensure all date strings are valid ISO format
-      const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
-        return rawTasks.map((t) => {
-          const deadlineDate = safeDate(t.deadline);
-          const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
-          const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
-          const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
-          const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
+  return rawTasks.map((t) => {
+    const deadlineDate = safeDate(t.deadline);
+    const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
+    const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
+    const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
+    const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
 
-          return {
-            ...t,
-            deadline: deadlineDate.toISOString(),
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            completedAt,
-            createdAt,
-          };
-        });
-      };
+    return {
+      ...t,
+      deadline: deadlineDate.toISOString(),
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      completedAt,
+      createdAt,
+    };
+  });
+};
 
       // Cleanup finished tasks older than 30 days
       const thirtyDaysAgo = new Date();
@@ -1401,15 +1419,61 @@ export default function App() {
                   <div className="space-y-6">
                     {/* Database status */}
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
-                      <h3 className="font-headline text-xl font-bold mb-2">서버 연결 상태</h3>
+                      <h3 className="font-headline text-xl font-bold mb-2">서버 및 구글 스프레드시트 연동</h3>
                       <p className="text-sm text-on-surface-variant mb-4">
                         {dbStatus === "GAS"
-                          ? "구글 스프레드시트 데이터베이스에 정상 연동되었습니다. 스프레드시트의 행과 실시간 동기화되어 언제든 데이터를 시각적으로 확인하고 직접 편집할 수 있습니다."
-                          : "로컬 오프라인 모드입니다. 구글 스프레드시트의 웹 앱 URL을 환경 변수 GAS_WEBHOOK_URL로 등록하시면 클라우드 연동 모드로 전환됩니다."}
+                          ? "구글 스프레드시트 데이터베이스(GAS)에 연동되어 있습니다. 일정을 등록/수정하면 자동으로 시트로 전송되며, 아래 버튼으로 언제든 실시간 강제 동기화할 수 있습니다."
+                          : "현재 로컬 브라우저 저장 모드입니다. Vercel 환경 변수(GAS_WEBHOOK_URL)가 배포 서버에 설정되어 있으면 자동으로 구글 시트와 동기화됩니다."}
                       </p>
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-variant text-sm font-bold border border-border">
-                        <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "GAS" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
-                        <span>{dbStatus === "GAS" ? "구글 스프레드시트 연동 완료" : "로컬 브라우저 저장 모드"}</span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-variant text-sm font-bold border border-border">
+                          <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "GAS" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
+                          <span>{dbStatus === "GAS" ? "구글 스프레드시트 연동 완료" : "로컬 브라우저 저장 모드"}</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setIsLoading(true);
+                            try {
+                              const serverTasks = await fetchTasksFromServer();
+                              if (serverTasks && serverTasks.length > 0) {
+                                const sanitized = sanitizeTaskDates(serverTasks);
+                                setTasks(sanitized);
+                                setDbStatus("GAS");
+                                alert("구글 스프레드시트에서 최신 일정을 정상적으로 동기화하여 가져왔습니다.");
+                              } else {
+                                alert("구글 스프레드시트가 비어있거나 불러올 일정이 없습니다.");
+                              }
+                            } catch (e) {
+                              alert("구글 스프레드시트 동기화 불러오기 중 오류가 발생했습니다.");
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-surface hover:bg-surface-variant text-on-surface border border-border rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors"
+                        >
+                          <RefreshCcw className="w-3.5 h-3.5 text-primary" /> 구글 시트에서 다시 불러오기
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setIsLoading(true);
+                            try {
+                              const success = await saveTasksToServer(tasks);
+                              if (success) {
+                                setDbStatus("GAS");
+                                alert("현재 화면의 모든 일정을 구글 스프레드시트로 성공적으로 내보냈습니다!");
+                              } else {
+                                alert("구글 스프레드시트로 내보내기 중 오류가 발생했습니다. (서버 응답 확인 필요)");
+                              }
+                            } catch (e) {
+                              alert("구글 스프레드시트 동기화 내보내기 중 오류가 발생했습니다.");
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors"
+                        >
+                          <Upload className="w-3.5 h-3.5" /> 구글 시트로 현재 일정 동기화 전송
+                        </button>
                       </div>
                     </div>
 
