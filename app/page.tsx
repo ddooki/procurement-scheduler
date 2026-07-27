@@ -746,24 +746,24 @@ export default function App() {
 
   // Derived states
   const todayTasks = tasks.filter(
-    (t) => t.status !== "DONE" && isToday(parseISO(t.deadline)),
+    (t) => t.status !== "DONE" && isToday(safeDate(t.deadline)),
   );
   const upcomingDeadlines = tasks
     .filter(
       (t) =>
         t.status !== "DONE" &&
-        isAfter(parseISO(t.deadline), startOfDay(new Date())),
+        isAfter(safeDate(t.deadline), startOfDay(new Date())),
     )
     .sort(
-      (a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime(),
+      (a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime(),
     )
     .slice(0, 5);
 
   const inProgressMultiDayTasks = tasks.filter((t) => {
     if (t.status !== "IN_PROGRESS") return false;
     if (!t.startDate || !t.endDate) return false;
-    const start = startOfDay(parseISO(t.startDate));
-    const end = startOfDay(parseISO(t.endDate));
+    const start = startOfDay(safeDate(t.startDate));
+    const end = startOfDay(safeDate(t.endDate));
     if (isSameDay(start, end)) return false;
     const today = startOfDay(new Date());
     return isWithinInterval(today, { start, end });
@@ -965,7 +965,7 @@ export default function App() {
                         <div className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
                           {tasks
                             .slice()
-                            .sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime())
+                            .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime())
                             .map((task) => (
                               <div
                                 key={task.id}
@@ -992,7 +992,7 @@ export default function App() {
                                   <div className="flex items-center gap-4 text-[11px] sm:text-sm text-on-surface-variant mt-2">
                                     <span className="flex items-center gap-1 font-medium bg-background px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-border">
                                       <Clock className="w-3.5 h-3.5" />
-                                      {format(parseISO(task.deadline), "yyyy년 MM월 dd일 HH:mm", { locale: ko })}
+                                      {safeFormat(task.deadline, "yyyy년 MM월 dd일 HH:mm", { locale: ko })}
                                     </span>
                                   </div>
                                 </div>
@@ -1025,7 +1025,7 @@ export default function App() {
                                 <div className="font-bold mb-1 truncate">{task.title}</div>
                                 <div className="text-on-surface-variant flex items-center gap-1 font-medium text-[10px] sm:text-xs">
                                   <Clock className="w-3.5 h-3.5" />
-                                  {format(parseISO(task.deadline), "a h:mm", { locale: ko })}
+                                  {safeFormat(task.deadline, "a h:mm", { locale: ko })}
                                 </div>
                               </div>
                             ))}
@@ -1046,7 +1046,7 @@ export default function App() {
                         ) : (
                           <div className="space-y-3 overflow-y-auto pr-1 cell-scroll max-h-[300px] lg:max-h-none flex-1">
                             {upcomingDeadlines.map((task) => {
-                              const date = parseISO(task.deadline);
+                              const date = safeDate(task.deadline);
                               const isTom = isTomorrow(date);
                               return (
                                 <div
@@ -1056,9 +1056,9 @@ export default function App() {
                                 >
                                   <div className="font-bold text-xs sm:text-sm mb-1 truncate">{task.title}</div>
                                   <div className="text-[10px] sm:text-xs text-on-surface-variant flex items-center justify-between font-medium mt-1">
-                                    <span>{format(date, "MMM do (E)", { locale: ko })}</span>
+                                    <span>{safeFormat(date, "MMM do (E)", { locale: ko })}</span>
                                     <span className="font-bold text-tertiary px-1.5 py-0.2 bg-tertiary-container/30 rounded-full text-[9px] sm:text-[11px]">
-                                      {isTom ? "내일" : format(date, "MM/dd")}
+                                      {isTom ? "내일" : safeFormat(date, "MM/dd")}
                                     </span>
                                   </div>
                                 </div>
@@ -1104,9 +1104,7 @@ export default function App() {
                       title="완료"
                       tasks={filterTasksForBoard(tasks).filter((t) => {
                         if (getTaskStatus(t) !== "DONE") return false;
-                        const refDate = t.completedAt 
-                          ? parseISO(t.completedAt) 
-                          : (t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+                        const refDate = safeDate(t.completedAt || t.endDate || t.deadline);
                         return countBusinessDaysBetween(refDate, new Date(), tasks) <= 2;
                       })}
                       onUpdateStatus={updateTaskStatus}
