@@ -863,7 +863,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
   return (
     <div className="flex h-[100dvh] bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
       {/* Left Navigation */}
-      <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-16"}`}>
+      <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex transition-[width] duration-200 ease-in-out will-change-[width] ${isSidebarOpen ? "w-64" : "w-16"}`}>
         {/* Toggle Button in middle-right edge of sidebar */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -914,21 +914,21 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<GitMerge className="w-5 h-5 text-tertiary flex-shrink-0" />}
+            icon={<GitMerge className="w-5 h-5 flex-shrink-0" />}
             label="연쇄 업무 설정"
             isActive={activeTab === "workflows"}
             onClick={() => setActiveTab("workflows")}
             isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<History className="w-5 h-5 text-primary flex-shrink-0" />}
+            icon={<History className="w-5 h-5 flex-shrink-0" />}
             label="주기별 업무 관리"
             isActive={activeTab === "periodic"}
             onClick={() => setActiveTab("periodic")}
             isCollapsed={!isSidebarOpen}
           />
           <NavItem
-            icon={<FileText className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+            icon={<FileText className="w-5 h-5 flex-shrink-0" />}
             label="메모장"
             isActive={activeTab === "notes"}
             onClick={() => setActiveTab("notes")}
@@ -1215,10 +1215,6 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                   exit={{ opacity: 0, y: -10 }}
                   className="h-full flex flex-col pb-6 w-full"
                 >
-                  <div className="mb-6 flex-shrink-0">
-                    <h2 className="font-headline text-3xl font-bold mb-1">캘린더</h2>
-                    <p className="text-on-surface-variant">월별 전체 일정을 확인하세요.</p>
-                  </div>
                   <div className="flex-1 overflow-hidden bg-surface rounded-2xl border border-border shadow-sm flex flex-col p-4 md:p-6">
                     <FullCalendar
                       tasks={tasks}
@@ -1560,7 +1556,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       }
 
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
+                        <div className="grid grid-cols-[repeat(auto-fill,_minmax(210px,_230px))] gap-4 pb-12">
                           {sortedNotes.map((note) => {
                             const isSelected = selectedNoteIds.includes(note.id);
                             return (
