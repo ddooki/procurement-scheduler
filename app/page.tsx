@@ -384,11 +384,31 @@ export default function App() {
         setDbStatus("LOCAL");
       }
 
+      // Helper to sanitize tasks and ensure all date strings are valid ISO format
+      const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
+        return rawTasks.map((t) => {
+          const deadlineDate = safeDate(t.deadline);
+          const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
+          const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
+          const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
+          const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+
+          return {
+            ...t,
+            deadline: deadlineDate.toISOString(),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            completedAt,
+            createdAt,
+          };
+        });
+      };
+
       // Cleanup finished tasks older than 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const validTasks = loadedTasks.filter((t: Task) => {
+      const validTasks = sanitizeTaskDates(loadedTasks).filter((t: Task) => {
         if (t.status === "DONE") {
           const compareDate = safeDate(t.completedAt || t.deadline);
           return isAfter(compareDate, thirtyDaysAgo);
