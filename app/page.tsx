@@ -347,6 +347,10 @@ export default function App() {
   const [renamingChainTaskId, setRenamingChainTaskId] = useState<string | null>(null);
   const [renamingChainName, setRenamingChainName] = useState<string>("");
 
+  // Batch Excel Import Modal States
+  const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
+  const [batchImportText, setBatchImportText] = useState("");
+
   // Load Tasks
   useEffect(() => {
     const initialize = async () => {
@@ -1477,25 +1481,33 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       </div>
                     </div>
 
-                    {/* Backup Section */}
+                    {/* Backup & Import Section */}
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-12 h-12 bg-primary-container text-primary rounded-xl flex items-center justify-center">
-                          <Download className="w-6 h-6" />
+                          <Upload className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="font-headline text-xl font-bold">오프라인 데이터 내보내기</h3>
-                          <p className="text-sm text-on-surface-variant">구글 스프레드시트 양식과 동일한 형태로 전체 일정을 엑셀(CSV) 파일로 저장합니다.</p>
+                          <h3 className="font-headline text-xl font-bold">엑셀 셀 복사/붙여넣기 괄목 일괄 등록</h3>
+                          <p className="text-sm text-on-surface-variant">엑셀이나 스프레드시트의 셀 데이터를 탭/줄바꿈 구분으로 그대로 붙여넣어 일괄 등록합니다.</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                      <div className="flex flex-col gap-3 mt-4">
+                        <button
+                          onClick={() => setIsBatchImportModalOpen(true)}
+                          className="px-6 py-3 bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                        >
+                          <Upload className="w-5 h-5" />
+                          📋 엑셀 텍스트 붙여넣기로 일괄 등록하기
+                        </button>
+
                         <button
                           onClick={handleExportExcelCSV}
-                          className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                          className="px-6 py-3 bg-surface hover:bg-surface-variant border border-border font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto text-on-surface"
                         >
-                          <Download className="w-5 h-5" />
-                          엑셀(CSV) 파일 다운로드
+                          <Download className="w-5 h-5 text-primary" />
+                          엑셀(CSV) 백업 파일 다운로드
                         </button>
                       </div>
                     </div>
@@ -1860,9 +1872,155 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
           </div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
+
+      {/* Batch Excel Import Modal */}
+        <AnimatePresence>
+          {isBatchImportModalOpen && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onClick={() => setIsBatchImportModalOpen(false)}
+              />
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="relative bg-surface w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-border max-h-[90vh]"
+              >
+                <div className="flex justify-between items-center p-5 border-b border-border bg-surface-variant/20">
+                  <h2 className="font-headline text-lg font-bold flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-primary" />
+                    엑셀 셀 복사/붙여넣기 괄목 일괄 등록
+                  </h2>
+                  <button
+                    onClick={() => setIsBatchImportModalOpen(false)}
+                    className="p-1.5 hover:bg-surface-variant rounded-full text-on-surface-variant flex items-center justify-center"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-5 flex flex-col gap-4 overflow-y-auto">
+                  <div className="bg-primary-container/30 border border-primary/20 p-3.5 rounded-xl text-xs space-y-1 text-on-surface">
+                    <p className="font-bold text-primary flex items-center gap-1">
+                      💡 엑셀 셀 복사 사용 방법:
+                    </p>
+                    <p>• 엑셀이나 스프레드시트의 행들을 그대로 복사(Ctrl+C)하여 아래 텍스트 상자에 붙여넣기(Ctrl+V) 하세요.</p>
+                    <p>• <b>열 순서 예시 (탭으로 구분됨):</b> [제목] [구분] [상태] [색상] [시작일] [시작시간] [종료일] [종료시간] [마감일] [마감시간] [설명]</p>
+                    <p>• ID나 날짜 포맷이 일정하지 않아도 시스템이 자동으로 생성 및 정화 처리합니다.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1.5">
+                      복사한 엑셀 셀 데이터 붙여넣기:
+                    </label>
+                    <textarea
+                      rows={10}
+                      value={batchImportText}
+                      onChange={(e) => setBatchImportText(e.target.value)}
+                      placeholder={`인앤 계약 완료 기한\tGENERAL\tTODO\t#8b5cf6\t2026.07.31\t-\t1970.01.01\t9:00\t1970.01.01\t9:00
+향남 MH 품평회\tBID\tTODO\t#d946ef\t2026.07.31\t14:00\t2026.07.31\t14:00\t2026.07.31\t14:00`}
+                      className="w-full p-3 rounded-xl border border-border bg-surface text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface leading-relaxed"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end p-4 border-t border-border bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchImportModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl border border-border bg-surface hover:bg-surface-variant/20 font-bold transition-colors text-xs text-on-surface"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!batchImportText.trim()) {
+                        alert("붙여넣은 엑셀 데이터가 없습니다.");
+                        return;
+                      }
+                      const lines = batchImportText.trim().split("\n");
+                      const importedTasks: Task[] = [];
+                      
+                      lines.forEach((line) => {
+                        const cols = line.split("\t").map((c) => c.trim().replace(/^"|"$/g, ""));
+                        if (cols.length === 0 || !cols[0] || cols[0] === "ID" || cols[0] === "제목") return;
+
+                        let title = "";
+                        let typeStr = "GENERAL";
+                        let statusStr = "TODO";
+                        let colorStr = "#4a7c59";
+                        let startDateStr = "";
+                        let startTimeStr = "";
+                        let endDateStr = "";
+                        let endTimeStr = "";
+                        let deadlineDateStr = "";
+                        let deadlineTimeStr = "";
+                        let descStr = "";
+
+                        // If col[0] is UUID-like ID, offset
+                        const isColUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cols[0]);
+                        let offset = isColUuid ? 1 : 0;
+
+                        title = cols[offset] || "제목 없음";
+                        typeStr = cols[offset + 1] || "GENERAL";
+                        statusStr = cols[offset + 2] || "TODO";
+                        colorStr = cols[offset + 3] || "#4a7c59";
+                        startDateStr = cols[offset + 4] || "";
+                        startTimeStr = cols[offset + 5] || "";
+                        endDateStr = cols[offset + 6] || "";
+                        endTimeStr = cols[offset + 7] || "";
+                        deadlineDateStr = cols[offset + 8] || "";
+                        deadlineTimeStr = cols[offset + 9] || "";
+                        descStr = cols[offset + 10] || "";
+
+                        const deadlineDate = safeDate(deadlineDateStr || startDateStr || undefined);
+                        const startDate = startDateStr ? safeDate(startDateStr) : deadlineDate;
+                        const endDate = endDateStr ? safeDate(endDateStr) : deadlineDate;
+
+                        const taskObj: Task = {
+                          id: crypto.randomUUID(),
+                          title,
+                          type: (typeStr as TaskType) || "GENERAL",
+                          status: (statusStr as TaskStatus) || "TODO",
+                          color: colorStr || "#4a7c59",
+                          startDate: startDate.toISOString(),
+                          endDate: endDate.toISOString(),
+                          deadline: deadlineDate.toISOString(),
+                          description: descStr,
+                          recurrence: "NONE",
+                          createdAt: new Date().toISOString(),
+                        };
+                        importedTasks.push(taskObj);
+                      });
+
+                      if (importedTasks.length === 0) {
+                        alert("파싱된 일정이 없습니다. 데이터 형식을 확인해 주세요.");
+                        return;
+                      }
+
+                      const updatedTasks = [...tasks, ...importedTasks];
+                      await saveTasksState(updatedTasks);
+                      setIsBatchImportModalOpen(false);
+                      setBatchImportText("");
+                      alert(`총 ${importedTasks.length}개의 일정이 완벽하게 추가/동기화 되었습니다!`);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-primary/90 font-bold transition-colors text-xs"
+                  >
+                    일괄 등록 및 동기화
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
 // Subcomponents
 
