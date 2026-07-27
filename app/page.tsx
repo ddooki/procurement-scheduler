@@ -1432,52 +1432,8 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-variant text-sm font-bold border border-border">
                           <div className={`w-2.5 h-2.5 rounded-full ${dbStatus === "GAS" ? "bg-primary animate-pulse" : "bg-amber-500"}`} />
-                          <span>{dbStatus === "GAS" ? "구글 스프레드시트 연동 완료" : "로컬 브라우저 저장 모드"}</span>
+                          <span>{dbStatus === "GAS" ? "구글 스프레드시트 실시간 동기화중" : "로컬 브라우저 저장 모드"}</span>
                         </div>
-                        <button
-                          onClick={async () => {
-                            setIsLoading(true);
-                            try {
-                              const serverTasks = await fetchTasksFromServer();
-                              if (serverTasks && serverTasks.length > 0) {
-                                const sanitized = sanitizeTaskDates(serverTasks);
-                                setTasks(sanitized);
-                                setDbStatus("GAS");
-                                alert("구글 스프레드시트에서 최신 일정을 정상적으로 동기화하여 가져왔습니다.");
-                              } else {
-                                alert("구글 스프레드시트가 비어있거나 불러올 일정이 없습니다.");
-                              }
-                            } catch (e) {
-                              alert("구글 스프레드시트 동기화 불러오기 중 오류가 발생했습니다.");
-                            } finally {
-                              setIsLoading(false);
-                            }
-                          }}
-                          className="px-4 py-2 bg-surface hover:bg-surface-variant text-on-surface border border-border rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <RefreshCcw className="w-3.5 h-3.5 text-primary" /> 구글 시트에서 다시 불러오기
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setIsLoading(true);
-                            try {
-                              const success = await saveTasksToServer(tasks);
-                              if (success) {
-                                setDbStatus("GAS");
-                                alert("현재 화면의 모든 일정을 구글 스프레드시트로 성공적으로 내보냈습니다!");
-                              } else {
-                                alert("구글 스프레드시트로 내보내기 중 오류가 발생했습니다. (서버 응답 확인 필요)");
-                              }
-                            } catch (e) {
-                              alert("구글 스프레드시트 동기화 내보내기 중 오류가 발생했습니다.");
-                            } finally {
-                              setIsLoading(false);
-                            }
-                          }}
-                          className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <Upload className="w-3.5 h-3.5" /> 구글 시트로 현재 일정 동기화 전송
-                        </button>
                       </div>
                     </div>
 
@@ -1496,7 +1452,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       <div className="flex flex-col gap-3 mt-4">
                         <button
                           onClick={() => setIsBatchImportModalOpen(true)}
-                          className="px-6 py-3 bg-tertiary hover:bg-tertiary/90 text-on-tertiary font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                          className="px-6 py-3 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
                         >
                           <Upload className="w-5 h-5" />
                           📋 엑셀 텍스트 붙여넣기로 일괄 등록하기
