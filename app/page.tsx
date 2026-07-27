@@ -1439,8 +1439,8 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
                     {/* Backup & Import Section */}
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-border shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-primary-container text-primary rounded-xl flex items-center justify-center">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 bg-primary-container text-primary rounded-xl flex items-center justify-center flex-shrink-0">
                           <Upload className="w-6 h-6" />
                         </div>
                         <div>
@@ -1449,18 +1449,18 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-3 mt-4">
+                      <div className="flex flex-col gap-3 mt-6">
                         <button
                           onClick={() => setIsBatchImportModalOpen(true)}
-                          className="px-6 py-3 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
+                          className="w-full h-12 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
                         >
-                          <Upload className="w-5 h-5" />
+                          <Upload className="w-5 h-5 text-on-primary" />
                           📋 엑셀 텍스트 붙여넣기로 일괄 등록하기
                         </button>
 
                         <button
                           onClick={handleExportExcelCSV}
-                          className="px-6 py-3 bg-surface hover:bg-surface-variant border border-border font-bold rounded-xl flex items-center justify-center gap-2 transition-colors w-full sm:w-auto text-on-surface"
+                          className="w-full h-12 bg-surface hover:bg-surface-variant border border-border font-bold rounded-xl flex items-center justify-center gap-2 transition-colors text-on-surface"
                         >
                           <Download className="w-5 h-5 text-primary" />
                           엑셀(CSV) 백업 파일 다운로드
@@ -1470,8 +1470,8 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
                     {/* Purge / Clear Database section */}
                     <div className="bg-surface rounded-2xl p-6 md:p-8 border border-error/30 shadow-sm">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-error-container text-error rounded-xl flex items-center justify-center">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 bg-error-container text-error rounded-xl flex items-center justify-center flex-shrink-0">
                           <Trash2 className="w-6 h-6" />
                         </div>
                         <div>
@@ -1480,17 +1480,20 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setDeleteConfirmStep("ASK");
-                          setDeletePassword("");
-                          setDeleteError("");
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="mt-4 px-6 py-3 bg-error text-on-error font-bold rounded-xl hover:opacity-90 transition-opacity w-full md:w-auto"
-                      >
-                        데이터베이스 완전 초기화
-                      </button>
+                      <div className="mt-6">
+                        <button
+                          onClick={() => {
+                            setDeleteConfirmStep("ASK");
+                            setDeletePassword("");
+                            setDeleteError("");
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-5 h-5 text-white" />
+                          데이터베이스 완전 초기화
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
