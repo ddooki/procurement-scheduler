@@ -72,6 +72,17 @@ const safeDate = (dateStr?: string | null): Date => {
   }
 };
 
+const safeFormat = (dateInput: Date | string | null | undefined, formatStr: string, options?: any): string => {
+  if (!dateInput) return "";
+  try {
+    const d = typeof dateInput === "string" ? safeDate(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return "";
+    return format(d, formatStr, options);
+  } catch {
+    return "";
+  }
+};
+
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL" | "HOLIDAY" | "COMPANY_HOLIDAY" | "PERSONAL_LEAVE";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type RecurrenceType = "NONE" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMI_ANNUALLY" | "ANNUALLY";
@@ -448,18 +459,18 @@ export default function App() {
     ];
     
     const rows = tasks.map(t => {
-      const start = t.startDate ? parseISO(t.startDate) : (t.deadline ? parseISO(t.deadline) : null);
-      const end = t.endDate ? parseISO(t.endDate) : (t.deadline ? parseISO(t.deadline) : null);
-      const dead = t.deadline ? parseISO(t.deadline) : null;
+      const start = t.startDate ? safeDate(t.startDate) : (t.deadline ? safeDate(t.deadline) : null);
+      const end = t.endDate ? safeDate(t.endDate) : (t.deadline ? safeDate(t.deadline) : null);
+      const dead = t.deadline ? safeDate(t.deadline) : null;
       
-      const startDateStr = start ? format(start, "yyyy.MM.dd") : "";
-      const startTimeStr = start ? (format(start, "HH:mm") === "00:00" ? "-" : format(start, "HH:mm")) : "-";
-      const endDateStr = end ? format(end, "yyyy.MM.dd") : "";
-      const endTimeStr = end ? (format(end, "HH:mm") === "00:00" ? "-" : format(end, "HH:mm")) : "-";
-      const deadlineDateStr = dead ? format(dead, "yyyy.MM.dd") : "";
-      const deadlineTimeStr = dead ? (format(dead, "HH:mm") === "00:00" ? "-" : format(dead, "HH:mm")) : "-";
-      const completedAtStr = t.completedAt ? format(parseISO(t.completedAt), "yyyy-MM-dd HH:mm:ss") : "";
-      const createdAtStr = t.createdAt ? format(parseISO(t.createdAt), "yyyy-MM-dd HH:mm:ss") : "";
+      const startDateStr = start ? safeFormat(start, "yyyy.MM.dd") : "";
+      const startTimeStr = start ? (safeFormat(start, "HH:mm") === "00:00" ? "-" : safeFormat(start, "HH:mm")) : "-";
+      const endDateStr = end ? safeFormat(end, "yyyy.MM.dd") : "";
+      const endTimeStr = end ? (safeFormat(end, "HH:mm") === "00:00" ? "-" : safeFormat(end, "HH:mm")) : "-";
+      const deadlineDateStr = dead ? safeFormat(dead, "yyyy.MM.dd") : "";
+      const deadlineTimeStr = dead ? (safeFormat(dead, "HH:mm") === "00:00" ? "-" : safeFormat(dead, "HH:mm")) : "-";
+      const completedAtStr = t.completedAt ? safeFormat(t.completedAt, "yyyy-MM-dd HH:mm:ss") : "";
+      const createdAtStr = t.createdAt ? safeFormat(t.createdAt, "yyyy-MM-dd HH:mm:ss") : "";
       
       return [
         t.id || "",
