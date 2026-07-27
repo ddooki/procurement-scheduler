@@ -260,17 +260,23 @@ const getTaskStatus = (task: Task): TaskStatus => {
   return period === "BEFORE" ? "TODO" : "IN_PROGRESS";
 };
 
-// Filter recurring tasks for the Work status board:
-// Only show the single nearest active occurrence (IN_PROGRESS > earliest TODO).
-// Exclude past occurrences if a future one is already scheduled.
+// Filter tasks for the Work status board (작업현황):
+// 1. Exclude holidays / leave types (HOLIDAY, COMPANY_HOLIDAY, PERSONAL_LEAVE) from the task board.
+// 2. For recurring tasks or same-title periodic tasks, only show the single nearest active/upcoming occurrence.
 const filterTasksForBoard = (taskList: Task[]): Task[] => {
+  // Step 1: Exclude holiday and leave items from work board
+  const workOnlyTasks = taskList.filter(
+    (t) => t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE"
+  );
+
   const recurringGroups: { [key: string]: Task[] } = {};
   const nonRecurringTasks: Task[] = [];
 
-  taskList.forEach(t => {
-    if (t.recurrence && t.recurrence !== "NONE") {
-      // Group by parentId (or its own ID if it is the parent)
-      const groupKey = t.parentId || t.id;
+  workOnlyTasks.forEach((t) => {
+    // Group by parentId, or recurrence group key, or same title if recurring/periodic
+    const isRecurring = (t.recurrence && t.recurrence !== "NONE") || !!t.parentId;
+    if (isRecurring) {
+      const groupKey = t.parentId || t.title.trim();
       if (!recurringGroups[groupKey]) {
         recurringGroups[groupKey] = [];
       }
@@ -282,50 +288,56 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
 
   const selectedRecurringTasks: Task[] = [];
 
-  Object.values(recurringGroups).forEach(group => {
+  Object.values(recurringGroups).forEach((group) => {
     // Sort tasks in chronological order
     const sorted = [...group].sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
-    
-    // Find completed/past tasks within 2 business days and keep them
-    const completedRetentionTasks = sorted.filter(t => {
+
+    // Completed retention tasks (within 2 business days)
+    const completedRetentionTasks = sorted.filter((t) => {
       if (getTaskStatus(t) !== "DONE") return false;
       const refDate = safeDate(t.completedAt || t.endDate || t.deadline);
       return countBusinessDaysBetween(refDate, new Date(), taskList) <= 2;
     });
-    
-    completedRetentionTasks.forEach(t => {
+
+    completedRetentionTasks.forEach((t) => {
       selectedRecurringTasks.push(t);
     });
 
-    // Find the single active/upcoming task to show in TODO/IN_PROGRESS (or DONE if no upcoming)
-    // Find if any is currently IN_PROGRESS
-    const activeProgress = sorted.find(t => getTaskStatus(t) === "IN_PROGRESS");
+    // Check if any task is currently IN_PROGRESS
+    const activeProgress = sorted.find((t) => getTaskStatus(t) === "IN_PROGRESS");
     if (activeProgress) {
-      if (!completedRetentionTasks.some(t => t.id === activeProgress.id)) {
+      if (!completedRetentionTasks.some((t) => t.id === activeProgress.id)) {
         selectedRecurringTasks.push(activeProgress);
       }
       return;
     }
 
-    // Find the nearest upcoming TODO task (today or future)
+    // Find nearest upcoming TODO task (today or future)
     const today = startOfDay(new Date());
-    const upcomingTodo = sorted.find(t => {
+    const upcomingTodo = sorted.find((t) => {
       const status = getTaskStatus(t);
       const deadline = startOfDay(safeDate(t.deadline));
       return status === "TODO" && deadline >= today;
     });
 
     if (upcomingTodo) {
-      if (!completedRetentionTasks.some(t => t.id === upcomingTodo.id)) {
+      if (!completedRetentionTasks.some((t) => t.id === upcomingTodo.id)) {
         selectedRecurringTasks.push(upcomingTodo);
       }
       return;
     }
 
-    // If all tasks are completed/past, show the latest completed/past task (if not already included)
+    // If no upcoming TODO (e.g. all past TODOs), pick the nearest future task or nearest past TODO
+    const nearestTodo = sorted.find((t) => getTaskStatus(t) === "TODO");
+    if (nearestTodo && !completedRetentionTasks.some((t) => t.id === nearestTodo.id)) {
+      selectedRecurringTasks.push(nearestTodo);
+      return;
+    }
+
+    // If all tasks are completed, show latest completed task
     if (sorted.length > 0) {
       const latest = sorted[sorted.length - 1];
-      if (!completedRetentionTasks.some(t => t.id === latest.id)) {
+      if (!completedRetentionTasks.some((t) => t.id === latest.id)) {
         selectedRecurringTasks.push(latest);
       }
     }
