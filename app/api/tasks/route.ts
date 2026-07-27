@@ -35,19 +35,27 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
+    // Google Apps Script requires text/plain to avoid CORS preflight options issues when redirecting
     const res = await fetch(GAS_WEBHOOK_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain;charset=utf-8",
       },
       body: JSON.stringify(body),
+      redirect: "follow",
     });
 
     if (!res.ok) {
       throw new Error(`GAS returned status ${res.status}`);
     }
 
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = { success: true };
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error("GAS POST error:", error);

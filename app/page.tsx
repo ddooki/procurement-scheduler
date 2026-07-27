@@ -62,6 +62,16 @@ import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchTasksFromServer, saveTasksToServer, isKVConfigured, checkServerKVStatus } from "../lib/kv";
 
+const safeDate = (dateStr?: string | null): Date => {
+  if (!dateStr) return new Date();
+  try {
+    const d = parseISO(dateStr);
+    return isNaN(d.getTime()) ? new Date() : d;
+  } catch {
+    return new Date();
+  }
+};
+
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL" | "HOLIDAY" | "COMPANY_HOLIDAY" | "PERSONAL_LEAVE";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 type RecurrenceType = "NONE" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMI_ANNUALLY" | "ANNUALLY";
@@ -371,9 +381,7 @@ export default function App() {
 
       const validTasks = loadedTasks.filter((t: Task) => {
         if (t.status === "DONE") {
-          const compareDate = t.completedAt
-            ? parseISO(t.completedAt)
-            : parseISO(t.deadline);
+          const compareDate = safeDate(t.completedAt || t.deadline);
           return isAfter(compareDate, thirtyDaysAgo);
         }
         return true;
