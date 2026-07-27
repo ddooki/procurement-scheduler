@@ -879,7 +879,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
               <ClipboardList className="w-6 h-6" />
             </div>
             {isSidebarOpen && (
-              <div className="min-w-0">
+              <div className="min-w-0 overflow-hidden whitespace-nowrap">
                 <h1 className="font-headline text-xl font-bold text-primary leading-tight truncate">
                   업무관리표
                 </h1>
@@ -946,7 +946,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
         <div className="p-3 border-t border-border/50 flex flex-col gap-3">
           <div className={`flex items-center ${isSidebarOpen ? "justify-between px-1" : "justify-center"}`}>
             {isSidebarOpen && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate overflow-hidden whitespace-nowrap">
                 <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
                 <span className="truncate">{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
               </div>
@@ -962,12 +962,12 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
           <button
             onClick={() => openNewTaskModal()}
             title={!isSidebarOpen ? "일정 추가" : undefined}
-            className={`relative w-full py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm ${
+            className={`relative w-full py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm overflow-hidden whitespace-nowrap ${
               isSidebarOpen ? "px-4" : "px-0"
             }`}
           >
-            <Plus className={`${isSidebarOpen ? "absolute left-5" : ""} w-5 h-5`} />
-            {isSidebarOpen && <span>일정 추가</span>}
+            <Plus className={`${isSidebarOpen ? "absolute left-5" : ""} w-5 h-5 flex-shrink-0`} />
+            {isSidebarOpen && <span className="ml-3">일정 추가</span>}
           </button>
         </div>
       </nav>
@@ -1556,7 +1556,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       }
 
                       return (
-                        <div className="grid grid-cols-[repeat(auto-fill,_minmax(210px,_230px))] gap-4 pb-12">
+                        <div className="grid grid-cols-[repeat(auto-fill,_minmax(280px,_1fr))] gap-5 pb-12">
                           {sortedNotes.map((note) => {
                             const isSelected = selectedNoteIds.includes(note.id);
                             return (
@@ -1577,7 +1577,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                                   }
                                 }}
                                 style={{ backgroundColor: note.color || NOTE_COLORS[0] }}
-                                className={`group relative p-4 rounded-2xl shadow-sm border transition-all cursor-pointer flex flex-col justify-between min-h-[160px] max-h-[260px] text-gray-900 ${
+                                className={`group relative p-5 rounded-2xl shadow-sm border transition-all cursor-pointer flex flex-col justify-between min-h-[220px] max-h-[320px] text-gray-900 ${
                                   isSelected ? "ring-4 ring-primary border-primary shadow-md scale-[0.98]" : "border-black/10 hover:shadow-md hover:-translate-y-0.5"
                                 }`}
                               >
@@ -2369,12 +2369,12 @@ function NavItem({
     <button
       onClick={onClick}
       title={isCollapsed ? label : undefined}
-      className={`w-full flex items-center ${isCollapsed ? "justify-center px-2" : "gap-3 px-4"} py-3 rounded-xl transition-colors font-medium ${
+      className={`w-full flex items-center ${isCollapsed ? "justify-center px-2" : "gap-3 px-4"} py-3 rounded-xl transition-colors font-medium overflow-hidden whitespace-nowrap ${
         isActive ? "bg-primary-container text-on-primary-container font-bold" : "text-on-surface-variant hover:bg-surface-variant"
       }`}
     >
       {icon}
-      {!isCollapsed && <span>{label}</span>}
+      {!isCollapsed && <span className="truncate transition-opacity duration-200">{label}</span>}
     </button>
   );
 }
