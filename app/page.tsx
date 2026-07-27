@@ -1978,9 +1978,17 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                         deadlineTimeStr = cols[offset + 9] || "";
                         descStr = cols[offset + 10] || "";
 
-                        const deadlineDate = safeDate(deadlineDateStr || startDateStr || undefined);
-                        const startDate = startDateStr ? safeDate(startDateStr) : deadlineDate;
-                        const endDate = endDateStr ? safeDate(endDateStr) : deadlineDate;
+                        const composeISOString = (dStr: string, tStr: string) => {
+                          if (!dStr || dStr === "-") return new Date().toISOString();
+                          const cleanD = dStr.replace(/\./g, "-").trim();
+                          const cleanT = (tStr && tStr !== "-") ? tStr.trim() : "00:00";
+                          const d = new Date(`${cleanD}T${cleanT.length === 4 ? "0" + cleanT : cleanT}:00`);
+                          return isNaN(d.getTime()) ? safeDate(dStr).toISOString() : d.toISOString();
+                        };
+
+                        const deadlineISO = composeISOString(deadlineDateStr || startDateStr, deadlineTimeStr);
+                        const startISO = composeISOString(startDateStr || deadlineDateStr, startTimeStr);
+                        const endISO = composeISOString(endDateStr || deadlineDateStr, endTimeStr);
 
                         const taskObj: Task = {
                           id: crypto.randomUUID(),
@@ -1988,9 +1996,9 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                           type: (typeStr as TaskType) || "GENERAL",
                           status: (statusStr as TaskStatus) || "TODO",
                           color: colorStr || "#4a7c59",
-                          startDate: startDate.toISOString(),
-                          endDate: endDate.toISOString(),
-                          deadline: deadlineDate.toISOString(),
+                          startDate: startISO,
+                          endDate: endISO,
+                          deadline: deadlineISO,
                           description: descStr,
                           recurrence: "NONE",
                           createdAt: new Date().toISOString(),
