@@ -161,8 +161,8 @@ const isBusinessDay = (date: Date, tasks: Task[]): boolean => {
     if (t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE") {
       return false;
     }
-    const start = startOfDay(t.startDate ? parseISO(t.startDate) : parseISO(t.deadline));
-    const end = startOfDay(t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+    const start = startOfDay(safeDate(t.startDate || t.deadline));
+    const end = startOfDay(safeDate(t.endDate || t.deadline));
     return targetDay >= start && targetDay <= end;
   });
 
@@ -197,8 +197,8 @@ const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[]): number
 
 const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
   const today = startOfDay(new Date());
-  const start = startOfDay(task.startDate ? parseISO(task.startDate) : parseISO(task.deadline));
-  const end = startOfDay(task.endDate ? parseISO(task.endDate) : parseISO(task.deadline));
+  const start = startOfDay(safeDate(task.startDate || task.deadline));
+  const end = startOfDay(safeDate(task.endDate || task.deadline));
   if (today < start) return "BEFORE";
   if (today > end) return "AFTER";
   return "DURING";
@@ -234,14 +234,12 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
 
   Object.values(recurringGroups).forEach(group => {
     // Sort tasks in chronological order
-    const sorted = [...group].sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime());
+    const sorted = [...group].sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
     
     // Find completed/past tasks within 2 business days and keep them
     const completedRetentionTasks = sorted.filter(t => {
       if (getTaskStatus(t) !== "DONE") return false;
-      const refDate = t.completedAt 
-        ? parseISO(t.completedAt) 
-        : (t.endDate ? parseISO(t.endDate) : parseISO(t.deadline));
+      const refDate = safeDate(t.completedAt || t.endDate || t.deadline);
       return countBusinessDaysBetween(refDate, new Date(), taskList) <= 2;
     });
     
@@ -263,7 +261,7 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
     const today = startOfDay(new Date());
     const upcomingTodo = sorted.find(t => {
       const status = getTaskStatus(t);
-      const deadline = startOfDay(parseISO(t.deadline));
+      const deadline = startOfDay(safeDate(t.deadline));
       return status === "TODO" && deadline >= today;
     });
 
