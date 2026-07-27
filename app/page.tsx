@@ -1894,12 +1894,12 @@ function TaskColumn({
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-border" onClick={(e) => e.stopPropagation()}>
               <div className="text-xs text-on-surface-variant flex items-center gap-1 font-medium bg-background px-1.5 py-0.5 rounded border border-border">
                 <CalendarIcon className="w-3.5 h-3.5 text-primary" />
-                {task.startDate && task.endDate && !isSameDay(parseISO(task.startDate), parseISO(task.endDate)) ? (
+                {task.startDate && task.endDate && !isSameDay(safeDate(task.startDate), safeDate(task.endDate)) ? (
                   <span>
-                    {format(parseISO(task.startDate), "MM/dd")} ~ {format(parseISO(task.endDate), "MM/dd")}
+                    {safeFormat(task.startDate, "MM/dd")} ~ {safeFormat(task.endDate, "MM/dd")}
                   </span>
                 ) : (
-                  <span>{format(parseISO(task.deadline), "MM/dd HH:mm")}</span>
+                  <span>{safeFormat(task.deadline, "MM/dd HH:mm")}</span>
                 )}
               </div>
 
