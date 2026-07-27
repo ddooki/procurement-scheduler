@@ -262,37 +262,38 @@ const getTaskStatus = (task: Task): TaskStatus => {
 
 // Filter tasks for the Work status board (작업현황):
 // 1. Exclude holidays / leave types (HOLIDAY, COMPANY_HOLIDAY, PERSONAL_LEAVE) from the task board.
-// 2. For recurring tasks or same-title periodic tasks, only show the single nearest active/upcoming occurrence.
+// 2. Group ALL tasks by title (or parentId), and for repeating/same-title tasks, ONLY show the single nearest active/upcoming item.
 const filterTasksForBoard = (taskList: Task[]): Task[] => {
   // Step 1: Exclude holiday and leave items from work board
   const workOnlyTasks = taskList.filter(
     (t) => t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE"
   );
 
-  const recurringGroups: { [key: string]: Task[] } = {};
-  const nonRecurringTasks: Task[] = [];
+  // Group tasks by normalized title or parentId to deduplicate repeating tasks
+  const titleGroups: { [key: string]: Task[] } = {};
 
   workOnlyTasks.forEach((t) => {
-    // Group by parentId, or recurrence group key, or same title if recurring/periodic
-    const isRecurring = (t.recurrence && t.recurrence !== "NONE") || !!t.parentId;
-    if (isRecurring) {
-      const groupKey = t.parentId || t.title.trim();
-      if (!recurringGroups[groupKey]) {
-        recurringGroups[groupKey] = [];
-      }
-      recurringGroups[groupKey].push(t);
-    } else {
-      nonRecurringTasks.push(t);
+    // Normalize title by trimming space and lowercasing
+    const groupKey = t.parentId || t.title.trim().toLowerCase();
+    if (!titleGroups[groupKey]) {
+      titleGroups[groupKey] = [];
     }
+    titleGroups[groupKey].push(t);
   });
 
-  const selectedRecurringTasks: Task[] = [];
+  const selectedBoardTasks: Task[] = [];
 
-  Object.values(recurringGroups).forEach((group) => {
-    // Sort tasks in chronological order
+  Object.values(titleGroups).forEach((group) => {
+    // If only 1 task in group, add it directly
+    if (group.length === 1) {
+      selectedBoardTasks.push(group[0]);
+      return;
+    }
+
+    // Sort tasks in chronological order by deadline
     const sorted = [...group].sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
 
-    // Completed retention tasks (within 2 business days)
+    // Retention: Completed tasks completed within 2 business days
     const completedRetentionTasks = sorted.filter((t) => {
       if (getTaskStatus(t) !== "DONE") return false;
       const refDate = safeDate(t.completedAt || t.endDate || t.deadline);
@@ -300,14 +301,14 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
     });
 
     completedRetentionTasks.forEach((t) => {
-      selectedRecurringTasks.push(t);
+      selectedBoardTasks.push(t);
     });
 
     // Check if any task is currently IN_PROGRESS
     const activeProgress = sorted.find((t) => getTaskStatus(t) === "IN_PROGRESS");
     if (activeProgress) {
       if (!completedRetentionTasks.some((t) => t.id === activeProgress.id)) {
-        selectedRecurringTasks.push(activeProgress);
+        selectedBoardTasks.push(activeProgress);
       }
       return;
     }
@@ -322,28 +323,30 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
 
     if (upcomingTodo) {
       if (!completedRetentionTasks.some((t) => t.id === upcomingTodo.id)) {
-        selectedRecurringTasks.push(upcomingTodo);
+        selectedBoardTasks.push(upcomingTodo);
       }
       return;
     }
 
-    // If no upcoming TODO (e.g. all past TODOs), pick the nearest future task or nearest past TODO
+    // If no upcoming TODO in the future, pick the nearest past TODO
     const nearestTodo = sorted.find((t) => getTaskStatus(t) === "TODO");
-    if (nearestTodo && !completedRetentionTasks.some((t) => t.id === nearestTodo.id)) {
-      selectedRecurringTasks.push(nearestTodo);
+    if (nearestTodo) {
+      if (!completedRetentionTasks.some((t) => t.id === nearestTodo.id)) {
+        selectedBoardTasks.push(nearestTodo);
+      }
       return;
     }
 
-    // If all tasks are completed, show latest completed task
+    // If all tasks in group are completed/past, show the latest one
     if (sorted.length > 0) {
       const latest = sorted[sorted.length - 1];
       if (!completedRetentionTasks.some((t) => t.id === latest.id)) {
-        selectedRecurringTasks.push(latest);
+        selectedBoardTasks.push(latest);
       }
     }
   });
 
-  return [...nonRecurringTasks, ...selectedRecurringTasks];
+  return selectedBoardTasks;
 };
 
 
