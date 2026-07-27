@@ -34,6 +34,8 @@ import {
   Pencil,
   PanelLeftClose,
   PanelLeftOpen,
+  FileText,
+  Search,
 } from "lucide-react";
 import {
   format,
@@ -127,6 +129,23 @@ interface Task {
   endDate?: string;
   chainName?: string;
 }
+
+interface Note {
+  id: string;
+  content: string;
+  color?: string;
+  isPinned?: boolean;
+  createdAt: string;
+}
+
+const NOTE_COLORS = [
+  "#fef08a", // Yellow
+  "#fed7aa", // Orange
+  "#bbf7d0", // Green
+  "#bfdbfe", // Blue
+  "#ddd6fe", // Purple
+  "#fbcfe8", // Pink
+];
 
 const STORAGE_KEY = "outsourcing_team_schedule_data";
 
@@ -317,10 +336,11 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "tasks" | "calendar" | "workflows" | "periodic" | "settings"
+    "dashboard" | "tasks" | "calendar" | "workflows" | "periodic" | "notes" | "settings"
   >("calendar");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
@@ -351,10 +371,20 @@ export default function App() {
   const [isBatchImportModalOpen, setIsBatchImportModalOpen] = useState(false);
   const [batchImportText, setBatchImportText] = useState("");
 
-  // Load Tasks
+  // Note Management States
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [noteSearchQuery, setNoteSearchQuery] = useState("");
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [noteContent, setNoteContent] = useState("");
+  const [noteColor, setNoteColor] = useState(NOTE_COLORS[0]);
+
+  // Load Tasks and Notes
   useEffect(() => {
     const initialize = async () => {
       let loadedTasks: Task[] = [];
+      let loadedNotes: Note[] = [];
       let themeMode = "light";
 
       // Google Apps Script connection check (runs on deployment)
@@ -363,48 +393,52 @@ export default function App() {
           const isConfigured = await checkServerKVStatus();
           if (isConfigured) {
             setDbStatus("GAS");
-            const serverTasks = await fetchTasksFromServer();
+            const serverData = await fetchTasksFromServer();
             
-            if (serverTasks && serverTasks.length > 0) {
-              loadedTasks = serverTasks;
+            if (serverData.tasks && serverData.tasks.length > 0) {
+              loadedTasks = serverData.tasks;
             } else {
-              // If GAS is empty, check localStorage
-              const saved = localStorage.getItem(STORAGE_KEY);
-              if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed.tasks && parsed.tasks.length > 0) {
-                  loadedTasks = parsed.tasks;
-                  await saveTasksToServer(loadedTasks);
-                }
-              }
+              loadLocalTasks();
+            }
+            if (serverData.notes && serverData.notes.length > 0) {
+              loadedNotes = serverData.notes;
+            } else {
+              loadLocalNotes();
             }
           } else {
-            loadFromLocal();
+            loadLocalTasks();
+            loadLocalNotes();
           }
         } catch (e) {
-          console.error("Vercel KV fetch error, falling back to local storage:", e);
-          loadFromLocal();
+          console.error("Fetch error, falling back to local storage:", e);
+          loadLocalTasks();
+          loadLocalNotes();
         }
       } else {
-        loadFromLocal();
+        loadLocalTasks();
+        loadLocalNotes();
       }
 
-      function loadFromLocal() {
+      function loadLocalTasks() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            if (parsed.tasks) {
-              loadedTasks = parsed.tasks;
-            }
-            if (parsed.theme === "dark") {
-              themeMode = "dark";
-            }
-          } catch (e) {
-            console.error("Failed to parse saved data");
-          }
+            if (parsed.tasks) loadedTasks = parsed.tasks;
+            if (parsed.theme === "dark") themeMode = "dark";
+          } catch (e) {}
         }
         setDbStatus("LOCAL");
+      }
+
+      function loadLocalNotes() {
+        const savedNotes = localStorage.getItem("outsourcing_team_notes_data");
+        if (savedNotes) {
+          try {
+            const parsed = JSON.parse(savedNotes);
+            if (Array.isArray(parsed)) loadedNotes = parsed;
+          } catch (e) {}
+        }
       }
 
 const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
@@ -439,6 +473,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       });
 
       setTasks(validTasks);
+      setNotes(loadedNotes);
       if (themeMode === "dark") {
         setIsDarkMode(true);
         document.documentElement.classList.add("dark");
@@ -450,14 +485,15 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     initialize();
   }, []);
 
-  // Save changes
-  const saveTasksState = async (newTasks: Task[]) => {
+  // Save changes for tasks and notes
+  const saveTasksState = async (newTasks: Task[], newNotes: Note[] = notes) => {
     setTasks(newTasks);
+    setNotes(newNotes);
     setLastSaved(new Date());
 
     // Sync to Google Spreadsheet if available
     try {
-      await saveTasksToServer(newTasks);
+      await saveTasksToServer(newTasks, newNotes);
       if (process.env.NODE_ENV === "production" || dbStatus === "GAS") {
         setDbStatus("GAS");
       }
@@ -472,6 +508,11 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       lastSaved: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(newNotes));
+  };
+
+  const saveNotesState = async (newNotes: Note[], currentTasks: Task[] = tasks) => {
+    await saveTasksState(currentTasks, newNotes);
   };
 
   const toggleTheme = () => {
@@ -884,6 +925,13 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             label="주기별 업무 관리"
             isActive={activeTab === "periodic"}
             onClick={() => setActiveTab("periodic")}
+            isCollapsed={!isSidebarOpen}
+          />
+          <NavItem
+            icon={<FileText className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+            label="메모장"
+            isActive={activeTab === "notes"}
+            onClick={() => setActiveTab("notes")}
             isCollapsed={!isSidebarOpen}
           />
           <NavItem
@@ -1409,6 +1457,196 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                 </motion.div>
               )}
 
+              {activeTab === "notes" && (
+                <motion.div
+                  key="notes"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="h-full flex flex-col pb-16 md:pb-0"
+                >
+                  {/* Header & Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 flex-shrink-0">
+                    <div>
+                      <h2 className="font-headline text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                        <FileText className="w-7 h-7 text-amber-500" />
+                        메모장
+                      </h2>
+                      <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
+                        중요 메모를 자유롭게 작성하고 관리하세요.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative flex-1 sm:w-64">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                        <input
+                          type="text"
+                          placeholder="메모 검색..."
+                          value={noteSearchQuery}
+                          onChange={(e) => setNoteSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-on-surface"
+                        />
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setIsSelectMode(!isSelectMode);
+                          setSelectedNoteIds([]);
+                        }}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors border ${
+                          isSelectMode
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-surface border-border text-on-surface-variant hover:bg-surface-variant"
+                        }`}
+                      >
+                        {isSelectMode ? "선택 취소" : "선택 삭제"}
+                      </button>
+
+                      {isSelectMode && selectedNoteIds.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            if (confirm(`선택한 ${selectedNoteIds.length}개의 메모를 삭제하시겠습니까?`)) {
+                              const remaining = notes.filter((n) => !selectedNoteIds.includes(n.id));
+                              await saveNotesState(remaining);
+                              setSelectedNoteIds([]);
+                              setIsSelectMode(false);
+                            }
+                          }}
+                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" /> {selectedNoteIds.length}개 삭제
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setEditingNote(null);
+                          setNoteContent("");
+                          setNoteColor(NOTE_COLORS[0]);
+                          setIsNoteModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+                      >
+                        <Plus className="w-4 h-4" /> 새 메모
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Responsive Note Grid:
+                      - Compact mobile: 1 column
+                      - Medium (Tablet/Fold cover): 2 columns
+                      - Z Fold 7 unfolded (800px+): 3 columns
+                      - PC Desktop (1280px+): 4~5 columns */}
+                  <div className="flex-1 overflow-y-auto pr-1 cell-scroll">
+                    {(() => {
+                      const filteredNotes = notes.filter((n) =>
+                        n.content.toLowerCase().includes(noteSearchQuery.toLowerCase())
+                      );
+                      const sortedNotes = [...filteredNotes].sort((a, b) => {
+                        if (a.isPinned && !b.isPinned) return -1;
+                        if (!a.isPinned && b.isPinned) return 1;
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                      });
+
+                      if (sortedNotes.length === 0) {
+                        return (
+                          <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl p-6 text-center">
+                            <FileText className="w-10 h-10 text-on-surface-variant/40 mb-3" />
+                            <p className="font-bold text-sm text-on-surface-variant">등록된 메모가 없습니다.</p>
+                            <p className="text-xs text-on-surface-variant/70 mt-1">상단의 [+ 새 메모] 버튼을 눌러 메모를 추가해 보세요.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-12">
+                          {sortedNotes.map((note) => {
+                            const isSelected = selectedNoteIds.includes(note.id);
+                            return (
+                              <div
+                                key={note.id}
+                                onClick={() => {
+                                  if (isSelectMode) {
+                                    if (isSelected) {
+                                      setSelectedNoteIds(selectedNoteIds.filter((id) => id !== note.id));
+                                    } else {
+                                      setSelectedNoteIds([...selectedNoteIds, note.id]);
+                                    }
+                                  } else {
+                                    setEditingNote(note);
+                                    setNoteContent(note.content);
+                                    setNoteColor(note.color || NOTE_COLORS[0]);
+                                    setIsNoteModalOpen(true);
+                                  }
+                                }}
+                                style={{ backgroundColor: note.color || NOTE_COLORS[0] }}
+                                className={`group relative p-4 rounded-2xl shadow-sm border transition-all cursor-pointer flex flex-col justify-between min-h-[160px] max-h-[260px] text-gray-900 ${
+                                  isSelected ? "ring-4 ring-primary border-primary shadow-md scale-[0.98]" : "border-black/10 hover:shadow-md hover:-translate-y-0.5"
+                                }`}
+                              >
+                                {isSelectMode && (
+                                  <div className="absolute top-3 left-3 z-10">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                      className="w-5 h-5 rounded border-gray-400 text-primary focus:ring-primary cursor-pointer"
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[10px] font-bold text-gray-600 bg-white/50 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                    {safeFormat(note.createdAt, "MM/dd HH:mm")}
+                                  </span>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const updated = notes.map((n) =>
+                                        n.id === note.id ? { ...n, isPinned: !n.isPinned } : n
+                                      );
+                                      await saveNotesState(updated);
+                                    }}
+                                    className={`p-1.5 rounded-full hover:bg-white/40 transition-colors ${
+                                      note.isPinned ? "text-amber-700 bg-white/60" : "text-gray-400 opacity-60 group-hover:opacity-100"
+                                    }`}
+                                    title={note.isPinned ? "고정 해제" : "상단 고정"}
+                                  >
+                                    📌
+                                  </button>
+                                </div>
+
+                                <p className="text-xs sm:text-sm font-medium whitespace-pre-line overflow-hidden line-clamp-6 leading-relaxed flex-1 my-1">
+                                  {note.content}
+                                </p>
+
+                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-black/10 text-[10px] text-gray-500 font-bold">
+                                  <span>{note.content.length}자</span>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm("이 메모를 삭제하시겠습니까?")) {
+                                        const remaining = notes.filter((n) => n.id !== note.id);
+                                        await saveNotesState(remaining);
+                                      }
+                                    }}
+                                    className="p-1 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </motion.div>
+              )}
+
               {activeTab === "settings" && (
                 <motion.div
                   key="settings"
@@ -1504,16 +1742,16 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       </div>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-6 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-50">
         <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
-        <MobileNavItem icon={<LayoutDashboard />} isActive={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
+        <MobileNavItem icon={<ClipboardList />} isActive={activeTab === "tasks"} onClick={() => setActiveTab("tasks")} />
         <button
           onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
-          className="w-12 h-12 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg transform -translate-y-4"
+          className="w-11 h-11 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg transform -translate-y-3"
         >
-          <Plus className="w-6 h-6" />
+          <Plus className="w-5 h-5" />
         </button>
-        <MobileNavItem icon={<ClipboardList />} isActive={activeTab === "tasks"} onClick={() => setActiveTab("tasks")} />
+        <MobileNavItem icon={<FileText />} isActive={activeTab === "notes"} onClick={() => setActiveTab("notes")} />
         <MobileNavItem icon={<SettingsIcon />} isActive={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
       </nav>
 
@@ -1826,6 +2064,133 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                 >
                   아래 연쇄 업무로 설정하기
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Note Add/Edit Modal */}
+      <AnimatePresence>
+        {isNoteModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setIsNoteModalOpen(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              style={{ backgroundColor: noteColor }}
+              className="relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-black/10 transition-colors text-gray-900"
+            >
+              <div className="flex justify-between items-center p-4 border-b border-black/10 bg-white/40 backdrop-blur-sm">
+                <h3 className="font-headline font-bold text-base flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-800" />
+                  {editingNote ? "메모 수정" : "새 메모 작성"}
+                </h3>
+                <button
+                  onClick={() => setIsNoteModalOpen(false)}
+                  className="p-1.5 hover:bg-white/50 rounded-full text-gray-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 flex flex-col gap-4">
+                {/* Color Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-2">메모 색상 선택</label>
+                  <div className="flex items-center gap-2.5">
+                    {NOTE_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNoteColor(c)}
+                        style={{ backgroundColor: c }}
+                        className={`w-7 h-7 rounded-full border border-black/20 transition-transform ${
+                          noteColor === c ? "scale-125 ring-2 ring-gray-800 shadow-md" : "hover:scale-110"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Content Textarea */}
+                <div>
+                  <textarea
+                    rows={8}
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder="메모할 내용을 자유롭게 입력하세요..."
+                    className="w-full p-4 rounded-xl border border-black/10 bg-white/60 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 text-gray-900 placeholder-gray-500 leading-relaxed font-medium"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-between p-4 border-t border-black/10 bg-white/40 backdrop-blur-sm">
+                {editingNote && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm("이 메모를 삭제하시겠습니까?")) {
+                        const remaining = notes.filter((n) => n.id !== editingNote.id);
+                        await saveNotesState(remaining);
+                        setIsNoteModalOpen(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-4 h-4" /> 삭제
+                  </button>
+                )}
+                <div className="flex gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsNoteModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-black/20 bg-white/50 hover:bg-white/80 font-bold transition-colors text-xs text-gray-800"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!noteContent.trim()) {
+                        alert("메모 내용을 입력해 주세요.");
+                        return;
+                      }
+
+                      let updatedNotes: Note[];
+                      if (editingNote) {
+                        updatedNotes = notes.map((n) =>
+                          n.id === editingNote.id
+                            ? { ...n, content: noteContent, color: noteColor }
+                            : n
+                        );
+                      } else {
+                        const newNote: Note = {
+                          id: crypto.randomUUID(),
+                          content: noteContent,
+                          color: noteColor,
+                          isPinned: false,
+                          createdAt: new Date().toISOString(),
+                        };
+                        updatedNotes = [newNote, ...notes];
+                      }
+
+                      await saveNotesState(updatedNotes);
+                      setIsNoteModalOpen(false);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gray-900 text-white hover:bg-gray-800 font-bold transition-colors text-xs shadow-md"
+                  >
+                    {editingNote ? "수정 완료" : "메모 저장"}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

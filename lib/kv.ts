@@ -13,30 +13,33 @@ export async function checkServerKVStatus(): Promise<boolean> {
   }
 }
 
-export async function fetchTasksFromServer(): Promise<any[]> {
+export async function fetchTasksFromServer(): Promise<{ tasks: any[]; notes: any[] }> {
   try {
     const res = await fetch("/api/tasks");
-    if (!res.ok) throw new Error("Failed to fetch tasks");
+    if (!res.ok) throw new Error("Failed to fetch data");
     const data = await res.json();
-    return data.tasks || [];
+    return {
+      tasks: data.tasks || [],
+      notes: data.notes || [],
+    };
   } catch (error) {
-    console.error("Error fetching tasks from Google Spreadsheet (GAS):", error);
-    return [];
+    console.error("Error fetching data from Google Spreadsheet (GAS):", error);
+    return { tasks: [], notes: [] };
   }
 }
 
-export async function saveTasksToServer(tasks: any[]): Promise<boolean> {
+export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promise<boolean> {
   try {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ tasks }),
+      body: JSON.stringify({ tasks, notes }),
     });
     return res.ok;
   } catch (error) {
-    console.error("Error saving tasks to Google Spreadsheet (GAS):", error);
+    console.error("Error saving data to Google Spreadsheet (GAS):", error);
     return false;
   }
 }
