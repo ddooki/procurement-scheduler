@@ -10,10 +10,16 @@ export const metadata: Metadata = {
   description: '외주구매팀을 위한 오프라인 지원 업무 및 일정 관리 대시보드',
 };
 
+import { ErrorBoundary } from './ErrorBoundary';
+
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="ko" className={`${literata.variable} ${nunitoSans.variable}`}>
-      <body className="font-body antialiased" suppressHydrationWarning>{children}</body>
+      <body className="font-body antialiased" suppressHydrationWarning>
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
+      </body>
     </html>
   );
 }
