@@ -1322,15 +1322,55 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                         </button>
                       </div>
 
-                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId).length === 0 ? (
+                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId).filter(startTask => {
+                          // Traverse chain to find last task
+                          let current = startTask;
+                          while (current.nextTaskId) {
+                            const next = tasks.find(t => t.id === current.nextTaskId);
+                            if (next) {
+                              current = next;
+                            } else {
+                              break;
+                            }
+                          }
+                          const lastDeadline = safeDate(current.endDate || current.deadline);
+                          const today = new Date();
+                          // Calculate business days passed since last task deadline
+                          if (isBefore(lastDeadline, startOfDay(today))) {
+                            const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, tasks);
+                            if (businessDaysPassed > 3) {
+                              return false; // Hide chain if last task deadline passed by more than 3 business days
+                            }
+                          }
+                          return true;
+                        }).length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center text-on-surface-variant opacity-60 border-2 border-dashed border-border rounded-xl">
                           <GitMerge className="w-12 h-12 mb-4 text-tertiary" />
                           <p>설정된 연쇄 업무가 없습니다.</p>
                           <p className="text-xs mt-1">일정을 등록할 때 '후속 업무 연동'을 설정하여 시작해 보세요.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId).map(startTask => {
+                        <div className="flex overflow-x-auto pb-4 gap-4 snap-x scrollbar-thin">
+                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId).filter(startTask => {
+                            let current = startTask;
+                            while (current.nextTaskId) {
+                              const next = tasks.find(t => t.id === current.nextTaskId);
+                              if (next) {
+                                current = next;
+                              } else {
+                                break;
+                              }
+                            }
+                            const lastDeadline = safeDate(current.endDate || current.deadline);
+                            const today = new Date();
+                            if (isBefore(lastDeadline, startOfDay(today))) {
+                              const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, tasks);
+                              if (businessDaysPassed > 3) {
+                                return false;
+                              }
+                            }
+                            return true;
+                          }).map(startTask => {
                             // Traverse the chain
                             const chain: Task[] = [startTask];
                             let current = startTask;
@@ -1345,14 +1385,14 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                             }
 
                             return (
-                              <div key={startTask.id} className="p-5 rounded-2xl bg-surface-variant/30 border border-border flex flex-col gap-4">
+                              <div key={startTask.id} className="w-[calc(25%-12px)] min-w-[240px] flex-shrink-0 snap-start p-4 rounded-2xl bg-surface-variant/30 border border-border flex flex-col gap-3">
                                 {renamingChainTaskId === startTask.id ? (
-                                  <div className="flex items-center gap-2 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-1">
                                     <input
                                       type="text"
                                       value={renamingChainName}
                                       onChange={(e) => setRenamingChainName(e.target.value)}
-                                      className="flex-1 px-2.5 py-1 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:ring-1 focus:ring-primary font-bold text-on-surface"
+                                      className="flex-1 px-2 py-1 text-xs rounded-lg border border-border bg-surface focus:outline-none focus:ring-1 focus:ring-primary font-bold text-on-surface"
                                       autoFocus
                                       onKeyDown={(e) => {
                                         if (e.key === "Enter") {
@@ -1367,53 +1407,53 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                                       className="p-1 text-primary hover:bg-surface-variant rounded-md"
                                       title="저장"
                                     >
-                                      <Check className="w-4 h-4" />
+                                      <Check className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => setRenamingChainTaskId(null)}
                                       className="p-1 text-on-surface-variant hover:bg-surface-variant rounded-md"
                                       title="취소"
                                     >
-                                      <X className="w-4 h-4" />
+                                      <X className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                 ) : (
-                                  <h3 className="font-bold text-md text-primary flex items-center justify-between group flex-1">
-                                    <span className="flex items-center gap-2">
-                                      <Layers className="w-4 h-4" />
-                                      {startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`}
+                                  <h3 className="font-bold text-sm text-primary flex items-center justify-between gap-1 flex-1">
+                                    <span className="flex items-center gap-1.5 min-w-0 truncate">
+                                      <Layers className="w-4 h-4 flex-shrink-0" />
+                                      <span className="truncate">{startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`}</span>
                                     </span>
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        onClick={() => {
-                                          setSelectedChainTasks(chain.map(c => c.id));
-                                          setIsChainSetupModalOpen(true);
-                                        }}
-                                        className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium transition-colors flex items-center gap-1"
-                                        title="체인 순서 및 구성 수정"
-                                      >
-                                        <Pencil className="w-3 h-3" /> 순서 수정
-                                      </button>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
                                       <button
                                         onClick={() => {
                                           setRenamingChainTaskId(startTask.id);
                                           setRenamingChainName(startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`);
                                         }}
-                                        className="p-1 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-variant rounded-md text-on-surface-variant transition-opacity"
+                                        className="p-1 hover:bg-surface-variant rounded-md text-on-surface-variant transition-colors"
                                         title="이름 수정"
                                       >
                                         <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedChainTasks(chain.map(c => c.id));
+                                          setIsChainSetupModalOpen(true);
+                                        }}
+                                        className="px-2 py-1 text-[11px] bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium transition-colors"
+                                        title="체인 순서 및 구성 수정"
+                                      >
+                                        순서 변경
                                       </button>
                                     </div>
                                   </h3>
                                 )}
                                 
-                                <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-2">
                                   {chain.map((task, idx) => (
                                     <React.Fragment key={task.id}>
                                       <div
                                         onClick={() => openEditTaskModal(task)}
-                                        className={`p-3 rounded-xl border cursor-pointer hover:border-primary transition-all flex items-center justify-between ${
+                                        className={`p-2.5 rounded-xl border cursor-pointer hover:border-primary transition-all flex items-center justify-between gap-2 ${
                                           task.status === "DONE"
                                             ? "bg-primary-container/20 border-primary/30 text-on-surface-variant"
                                             : task.status === "IN_PROGRESS"
@@ -1421,28 +1461,28 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                                             : "bg-surface border-border"
                                         }`}
                                       >
-                                        <div className="flex items-center gap-2.5">
-                                          <span className="w-5 h-5 rounded-full bg-surface border border-border flex items-center justify-center text-xs font-bold">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="w-4 h-4 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] font-bold flex-shrink-0">
                                             {idx + 1}
                                           </span>
-                                          <div>
-                                            <p className={`font-bold text-sm ${task.status === "DONE" ? "line-through opacity-70" : ""}`}>
+                                          <div className="min-w-0">
+                                            <p className={`font-bold text-xs truncate ${task.status === "DONE" ? "line-through opacity-70" : ""}`}>
                                               {task.title}
                                             </p>
-                                            <p className="text-[10px] text-on-surface-variant">
+                                            <p className="text-[9px] text-on-surface-variant truncate">
                                               마감: {format(parseISO(task.deadline), "MM/dd HH:mm")}
                                             </p>
                                           </div>
                                         </div>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
                                           task.status === "DONE" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"
                                         }`}>
                                           {task.status === "DONE" ? "완료" : task.status === "IN_PROGRESS" ? "진행중" : "대기중"}
                                         </span>
                                       </div>
                                       {idx < chain.length - 1 && (
-                                        <div className="flex justify-center my-0.5">
-                                          <ChevronDown className="w-5 h-5 text-on-surface-variant/40 animate-pulse" />
+                                        <div className="flex justify-center my-0">
+                                          <ChevronDown className="w-4 h-4 text-on-surface-variant/40 animate-pulse" />
                                         </div>
                                       )}
                                     </React.Fragment>
