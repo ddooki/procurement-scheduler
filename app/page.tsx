@@ -1318,7 +1318,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                           }}
                           className="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm flex items-center gap-1 hover:opacity-90 transition-opacity"
                         >
-                          <GitMerge className="w-4 h-4" /> 기존 업무 연쇄 업무로 설정하기
+                          <GitMerge className="w-4 h-4" /> 연쇄 업무 설정
                         </button>
                       </div>
 
@@ -1383,16 +1383,28 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                                       <Layers className="w-4 h-4" />
                                       {startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`}
                                     </span>
-                                    <button
-                                      onClick={() => {
-                                        setRenamingChainTaskId(startTask.id);
-                                        setRenamingChainName(startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`);
-                                      }}
-                                      className="p-1 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-variant rounded-md text-on-surface-variant transition-opacity ml-2"
-                                      title="이름 수정"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedChainTasks(chain.map(c => c.id));
+                                          setIsChainSetupModalOpen(true);
+                                        }}
+                                        className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium transition-colors flex items-center gap-1"
+                                        title="체인 순서 및 구성 수정"
+                                      >
+                                        <Pencil className="w-3 h-3" /> 순서 수정
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setRenamingChainTaskId(startTask.id);
+                                          setRenamingChainName(startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`);
+                                        }}
+                                        className="p-1 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-variant rounded-md text-on-surface-variant transition-opacity"
+                                        title="이름 수정"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </h3>
                                 )}
                                 
@@ -1959,7 +1971,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
               <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold flex items-center gap-2 text-primary">
                   <GitMerge className="w-5 h-5" />
-                  기존 업무 연쇄 설정
+                  연쇄 업무 설정
                 </h2>
                 <button
                   onClick={() => setIsChainSetupModalOpen(false)}
@@ -1971,7 +1983,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
               <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  연쇄적으로 연결할 일정을 순서대로 클릭해 주세요. 선택한 순서대로 <strong>선행 업무 ➔ 후속 업무</strong>의 순서로 연결 체인이 생성됩니다.
+                  연쇄적으로 연결할 일정을 선택해 주세요. 아래 목록에서 <strong>위/아래 화살표(▲/▼)</strong>를 눌러 간편하게 연결 순서를 조정하고 변경할 수 있습니다.
                 </p>
 
                 {/* Sorting Controls */}
@@ -2001,7 +2013,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                 </div>
 
                 {/* Task List */}
-                <div className="flex-1 min-h-[250px] max-h-[40vh] overflow-y-auto border border-border rounded-xl p-2 space-y-1.5 bg-background/50">
+                <div className="flex-1 min-h-[200px] max-h-[35vh] overflow-y-auto border border-border rounded-xl p-2 space-y-1.5 bg-background/50">
                   {tasks.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-xs text-on-surface-variant/60">
                       등록된 일정이 없습니다.
@@ -2063,26 +2075,80 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                   )}
                 </div>
 
-                {/* Selected Sequence visualization */}
+                {/* Selected Sequence visualization with reordering controls */}
                 {selectedChainTasks.length > 0 && (
-                  <div className="p-3 bg-surface-variant/30 border border-border rounded-xl">
-                    <span className="text-[10px] font-bold text-on-surface-variant block mb-2">설정할 연쇄 업무 경로 미리보기:</span>
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="p-3.5 bg-surface-variant/30 border border-border rounded-xl flex flex-col gap-2">
+                    <span className="text-[11px] font-bold text-on-surface flex items-center justify-between">
+                      <span>설정될 연쇄 순서 ({selectedChainTasks.length}개 선택됨):</span>
+                      <span className="text-[10px] text-on-surface-variant font-normal">▲/▼ 버튼으로 순서 변경</span>
+                    </span>
+                    <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto pr-1">
                       {selectedChainTasks.map((id, index) => {
                         const t = tasks.find(x => x.id === id);
                         if (!t) return null;
                         return (
-                          <React.Fragment key={id}>
-                            <div className="px-2.5 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
+                          <div
+                            key={id}
+                            className="px-3 py-2 bg-surface border border-border rounded-lg text-xs font-bold flex items-center justify-between shadow-sm"
+                          >
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <span className="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] flex-shrink-0 font-bold">
                                 {index + 1}
                               </span>
-                              <span className="max-w-[100px] truncate">{t.title}</span>
+                              <span className="truncate text-on-surface">{t.title}</span>
                             </div>
-                            {index < selectedChainTasks.length - 1 && (
-                              <ArrowRight className="w-3.5 h-3.5 text-on-surface-variant/60" />
-                            )}
-                          </React.Fragment>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                title="위로 이동"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (index === 0) return;
+                                  setSelectedChainTasks(prev => {
+                                    const next = [...prev];
+                                    const temp = next[index - 1];
+                                    next[index - 1] = next[index];
+                                    next[index] = temp;
+                                    return next;
+                                  });
+                                }}
+                                className="p-1 rounded hover:bg-surface-variant text-on-surface-variant disabled:opacity-30 disabled:hover:bg-transparent"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === selectedChainTasks.length - 1}
+                                title="아래로 이동"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (index === selectedChainTasks.length - 1) return;
+                                  setSelectedChainTasks(prev => {
+                                    const next = [...prev];
+                                    const temp = next[index + 1];
+                                    next[index + 1] = next[index];
+                                    next[index] = temp;
+                                    return next;
+                                  });
+                                }}
+                                className="p-1 rounded hover:bg-surface-variant text-on-surface-variant disabled:opacity-30 disabled:hover:bg-transparent"
+                              >
+                                ▼
+                              </button>
+                              <button
+                                type="button"
+                                title="제거"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedChainTasks(prev => prev.filter(item => item !== id));
+                                }}
+                                className="p-1 rounded hover:bg-error/10 text-error ml-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
@@ -2109,7 +2175,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                       : "bg-surface-variant text-on-surface-variant/50 border border-border cursor-not-allowed"
                   }`}
                 >
-                  아래 연쇄 업무로 설정하기
+                  연쇄 업무로 설정하기
                 </button>
               </div>
             </motion.div>
