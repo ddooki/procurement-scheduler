@@ -507,17 +507,58 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
   });
 };
 
-      // Cleanup finished tasks older than 30 days
+      // 1. Cleanup finished tasks older than 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const validTasks = sanitizeTaskDates(loadedTasks).filter((t: Task) => {
+      let sanitized = sanitizeTaskDates(loadedTasks).filter((t: Task) => {
         if (t.status === "DONE") {
           const compareDate = safeDate(t.completedAt || t.deadline);
           return isAfter(compareDate, thirtyDaysAgo);
         }
         return true;
       });
+
+      // 2. Automatically delete chain tasks if the chain's last task deadline passed by more than 3 business days
+      const today = new Date();
+      const expiredChainTaskIds = new Set<string>();
+
+      // Find all start tasks of chains
+      const startTasks = sanitized.filter(t => !t.prevTaskId && t.nextTaskId);
+      startTasks.forEach(startTask => {
+        const chain: Task[] = [startTask];
+        let current = startTask;
+        while (current.nextTaskId) {
+          const next = sanitized.find(t => t.id === current.nextTaskId);
+          if (next) {
+            chain.push(next);
+            current = next;
+          } else {
+            break;
+          }
+        }
+        const lastTask = chain[chain.length - 1];
+        const lastDeadline = safeDate(lastTask.endDate || lastTask.deadline);
+        if (isBefore(lastDeadline, startOfDay(today))) {
+          const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, sanitized);
+          if (businessDaysPassed > 3) {
+            chain.forEach(t => expiredChainTaskIds.add(t.id));
+          }
+        }
+      });
+
+      let validTasks = sanitized;
+      if (expiredChainTaskIds.size > 0) {
+        validTasks = sanitized.filter(t => !expiredChainTaskIds.has(t.id));
+        // Save cleaned state if any expired chain tasks were removed
+        saveTasksToServer(validTasks, loadedNotes).catch(() => {});
+        const data = {
+          tasks: validTasks,
+          theme: themeMode === "dark" ? "dark" : "light",
+          lastSaved: new Date().toISOString(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
 
       setTasks(validTasks);
       setNotes(loadedNotes);
