@@ -519,7 +519,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
         return true;
       });
 
-      // 2. Automatically delete chain tasks if the chain's last task deadline passed by more than 3 business days
+      // 2. Automatically clear chain links if the chain's last task deadline passed by more than 3 business days
       const today = new Date();
       const expiredChainTaskIds = new Set<string>();
 
@@ -549,8 +549,20 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
       let validTasks = sanitized;
       if (expiredChainTaskIds.size > 0) {
-        validTasks = sanitized.filter(t => !expiredChainTaskIds.has(t.id));
-        // Save cleaned state if any expired chain tasks were removed
+        // Clear chain connections (prevTaskId, nextTaskId, chainName) while keeping the tasks intact
+        validTasks = sanitized.map(t => {
+          if (expiredChainTaskIds.has(t.id)) {
+            return {
+              ...t,
+              prevTaskId: undefined,
+              nextTaskId: undefined,
+              chainName: undefined,
+            };
+          }
+          return t;
+        });
+
+        // Save cleaned state
         saveTasksToServer(validTasks, loadedNotes).catch(() => {});
         const data = {
           tasks: validTasks,
