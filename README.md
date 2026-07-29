@@ -1,24 +1,78 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🏢 외주구매팀 스마트 업무관리표 (Procurement Scheduler)
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/3b0b5c8e-de3c-4357-b8ee-17e0ffe32ddb
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+> **외주구매팀 전용 스마트 스케줄러 & 연쇄 업무 파이프라인 관리 플랫폼**  
+> 팀원들의 업무, 미팅, 입찰, 서류 제출부터 주말/공휴일/연차/지정연차가 자동 반영된 **정밀 영업일(Business Day)** 기준 D-Day 계산 및 **연쇄 업무 파이프라인**을 제공합니다.
 
 ---
-*Vercel KV Storage configured.*
 
+## 🌟 핵심 기능 (Key Features)
+
+### 1. 🔗 연쇄 업무(Chain Process) 파이프라인
+- **4열 가로 스크롤 레이아웃**: 한 화면에 최대 4개의 연쇄 업무 카드가 깔끔하게 나열되며, 초과 시 터치/마우스휠 가로 스크롤 지원.
+- **체인 순서 및 위치 변경**: 2D 모달에서 `▲(위로)` / `▼(아래로)` 버튼으로 순서를 손쉽게 조정하고, 개별 항목 제거(`X`) 및 신규 일정 연결 가능.
+- **영업일 3일 보존 자동 해제 규칙**: 연쇄 업무의 마지막 마감일이 지난 후 **영업일 기준 3일간 보존**되며, 4영업일째 되는 날 개별 일정 데이터는 유지한 채 **선후 연결 이력만 자동 해제**되어 깔끔함 유지.
+
+### 2. 🗓️ 정밀 영업일(Business Day) 계산 엔진
+- **자동 차감 대상**:
+  - 주말 (토요일, 일요일)
+  - `HOLIDAY` (공휴일)
+  - `COMPANY_HOLIDAY` (지정연차)
+  - `PERSONAL_LEAVE` (연차/휴가)
+- 실무자의 실제 출근일(영업일)만을 집계하여 **지연 영업일수** 및 **D-Day**를 정밀하게 추적합니다.
+
+### 3. 📊 5가지 다중 업무 관리 뷰
+- **대시보드 (Dashboard)**: Today, 금주, 완료, 전체 일정을 한눈에 파악.
+- **풀 캘린더 (Calendar)**: 월별/일별 시각적 스케줄링 및 퀵 일정 추가.
+- **영업일 현황판**: 지연 경고 업무 및 팀원 연차 현황 실시간 파악.
+- **주기별 업무 관리**: 연/반기/분기/월/주 단위 정기 점검 항목 및 완료 시 차기 일정 자동 생성.
+- **메모 보드**: 포스트잇 스타일 메모 및 고정(Pinning) 기능.
+
+### 4. 🔄 이중 데이터 동기화 (Dual Sync)
+- **Google Spreadsheet DB (GAS Webhook)**: 구글 시트를 백엔드 데이터베이스로 활용하여 엑셀 형태의 데이터 실시간 무제한 보존.
+- **Browser LocalStorage**: 오프라인 또는 네트워크 지연 시에도 즉각 반응하는 브라우저 가공 백업 저장소.
+
+---
+
+## 🚀 개발 및 실행 방법 (Getting Started)
+
+### 사전 요구사항
+- [Node.js](https://nodejs.org/) v18 이상
+
+### 로컬 실행
+```bash
+# 1. 의존성 패키지 설치
+npm install
+
+# 2. 로컬 개발 서버 실행
+npm run dev
+
+# 3. 브라우저에서 접속
+http://localhost:3000
+```
+
+### 프로덕션 빌드
+```bash
+npm run build
+npm run start
+```
+
+---
+
+## 📜 변경 및 업데이트 이력 (Changelog)
+
+### v1.3.0 (2026-07-29) - 연쇄 업무 UI & 영업일 자동 정리 개선
+- **FEAT**: 영업일 3일 경과 시 일정 보존 및 연쇄 이력만 자동 해제(`auto-clear`) 로직 구현
+- **UI/UX**: 연쇄 업무 설정 탭 4열 가로 스크롤 레이아웃 컴팩트화
+- **UI/UX**: 연쇄 업무 모달 내 `▲/▼` 위아래 순서 변경 및 `X` 항목 제거 컨트롤 추가
+- **UI/UX**: 타이틀 우측 `이름 수정` (연필 아이콘 상시 표시) 및 `순서 변경` 버튼 배치 최적화
+
+### v1.2.0 (2026-07-29) - 영업일(Business Day) 비즈니스 로직 표준화
+- **FEAT**: 토/일 주말 및 공휴일, 지정연차, 연차/휴가 통합 차감 영업일 엔진 완성
+- **DOCS**: 프로젝트 내 `.agents/AGENTS.md` 비즈니스 규칙 표준 명세 작성
+
+### v1.1.0 (2026-07-28) - 데이터 아키텍처 개편 (Dual Sync)
+- **FEAT**: Vercel KV 제거 및 Google Apps Script(GAS) Webhook DB + LocalStorage 이중 동기화 구조 적용
+- **FEAT**: Excel/CSV 파일 내보내기 및 임포트 기능 탑재
+
+### v1.0.0 (2026-07-15) - 최초 릴리즈
+- **FEAT**: 대시보드, 풀 캘린더, 영업일 현황, 주기별 업무, 메모 모드 구현
