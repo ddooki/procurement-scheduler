@@ -517,6 +517,12 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
           return isAfter(compareDate, thirtyDaysAgo);
         }
         return true;
+      }).map((t: Task) => {
+        // Auto-assign MONTHLY recurrence if title contains '월간' and recurrence is NONE or undefined
+        if ((!t.recurrence || t.recurrence === "NONE") && t.title.includes("월간")) {
+          return { ...t, recurrence: "MONTHLY" as RecurrenceType };
+        }
+        return t;
       });
 
       // 2. Automatically clear chain links if the chain's last task deadline passed by more than 3 business days
@@ -1558,48 +1564,72 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                 >
                   <div className="mb-6 flex-shrink-0">
                     <h2 className="font-headline text-3xl font-bold mb-1">주기별 업무 관리</h2>
-                    <p className="text-on-surface-variant">연간, 반기, 분기 단위로 반복해서 챙겨야 하는 정기 점검 및 구매업무 관리판입니다.</p>
+                    <p className="text-on-surface-variant">주간, 월간, 분기, 반기, 연간 단위로 반복해서 챙겨야 하는 정기 점검 및 구매업무 관리판입니다.</p>
                   </div>
 
                   <div className="flex-1 bg-surface rounded-2xl border border-border p-6 shadow-sm overflow-hidden flex flex-col">
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="p-4 rounded-xl border border-border bg-surface-variant/20">
-                        <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">연간 업무 수</h4>
-                        <p className="text-2xl font-bold text-primary">{tasks.filter(t => t.recurrence === "ANNUALLY").length}개</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
+                      <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
+                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">주간 업무</h4>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{tasks.filter(t => t.recurrence === "WEEKLY").length}개</p>
                       </div>
-                      <div className="p-4 rounded-xl border border-border bg-surface-variant/20">
-                        <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">반기 업무 수</h4>
-                        <p className="text-2xl font-bold text-tertiary">{tasks.filter(t => t.recurrence === "SEMI_ANNUALLY").length}개</p>
+                      <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
+                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">월간 업무</h4>
+                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{tasks.filter(t => t.recurrence === "MONTHLY").length}개</p>
                       </div>
-                      <div className="p-4 rounded-xl border border-border bg-surface-variant/20">
-                        <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">분기 업무 수</h4>
-                        <p className="text-2xl font-bold text-error">{tasks.filter(t => t.recurrence === "QUARTERLY").length}개</p>
+                      <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
+                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">분기 업무</h4>
+                        <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{tasks.filter(t => t.recurrence === "QUARTERLY").length}개</p>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
+                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">반기 업무</h4>
+                        <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{tasks.filter(t => t.recurrence === "SEMI_ANNUALLY").length}개</p>
+                      </div>
+                      <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
+                        <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">연간 업무</h4>
+                        <p className="text-xl font-bold text-rose-600 dark:text-rose-400">{tasks.filter(t => t.recurrence === "ANNUALLY").length}개</p>
                       </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-6">
-                      {/* Annually Section */}
+                    <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+                      {/* Weekly Section */}
                       <div>
-                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-primary">
-                          <History className="w-5 h-5" /> 연간 정기 업무
+                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-blue-600 dark:text-blue-400">
+                          <History className="w-5 h-5" /> 주간 정기 업무
                         </h3>
-                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "ANNUALLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
+                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "WEEKLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
+                      </div>
+
+                      {/* Monthly Section */}
+                      <div className="pt-2">
+                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-emerald-600 dark:text-emerald-400">
+                          <History className="w-5 h-5" /> 월간 정기 업무
+                        </h3>
+                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "MONTHLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
+                      </div>
+
+                      {/* Quarterly Section */}
+                      <div className="pt-2">
+                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-amber-600 dark:text-amber-400">
+                          <History className="w-5 h-5" /> 분기 정기 업무
+                        </h3>
+                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "QUARTERLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
 
                       {/* Semi-Annually Section */}
-                      <div className="pt-4">
-                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-tertiary">
+                      <div className="pt-2">
+                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-purple-600 dark:text-purple-400">
                           <History className="w-5 h-5" /> 반기 정기 업무
                         </h3>
                         <PeriodicTable tasks={tasks.filter(t => t.recurrence === "SEMI_ANNUALLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
 
-                      {/* Quarterly Section */}
-                      <div className="pt-4">
-                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-error">
-                          <History className="w-5 h-5" /> 분기 정기 업무
+                      {/* Annually Section */}
+                      <div className="pt-2">
+                        <h3 className="text-base font-bold mb-3 flex items-center gap-2 border-b border-border pb-2 text-rose-600 dark:text-rose-400">
+                          <History className="w-5 h-5" /> 연간 정기 업무
                         </h3>
-                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "QUARTERLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
+                        <PeriodicTable tasks={tasks.filter(t => t.recurrence === "ANNUALLY")} onEdit={openEditTaskModal} onStatusUpdate={updateTaskStatus} />
                       </div>
                     </div>
                   </div>
