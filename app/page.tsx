@@ -1351,29 +1351,26 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                   exit={{ opacity: 0, y: -10 }}
                   className="h-full flex flex-col pb-6"
                 >
-                  <div className="mb-6 flex-shrink-0">
-                    <h2 className="font-headline text-3xl font-bold mb-1">연쇄 업무 설정</h2>
-                    <p className="text-on-surface-variant">
-                      선후 관계가 연결되어 순서대로 처리해야 하는 주요 업무 프로세스를 관리합니다.
-                    </p>
+                  <div className="mb-4 flex-shrink-0 flex justify-between items-end">
+                    <div>
+                      <h2 className="font-headline text-3xl font-bold mb-1">연쇄 업무 설정</h2>
+                      <p className="text-on-surface-variant">
+                        선후 관계가 연결되어 순서대로 처리해야 하는 주요 업무 프로세스를 관리합니다.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedChainTasks([]);
+                        setIsChainSetupModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-sm flex-shrink-0"
+                    >
+                      <GitMerge className="w-4 h-4" /> 연쇄 업무 설정
+                    </button>
                   </div>
 
-                  <div className="flex-1 bg-surface rounded-2xl border border-border p-6 shadow-sm overflow-y-auto">
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center pb-4 border-b border-border">
-                        <span className="text-sm font-bold text-on-surface-variant">
-                          순차 실행 프로세스 구조 (업무를 누르면 수정하거나 새 후속 업무를 생성할 수 있습니다)
-                        </span>
-                        <button
-                          onClick={() => {
-                            setSelectedChainTasks([]);
-                            setIsChainSetupModalOpen(true);
-                          }}
-                          className="px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm flex items-center gap-1 hover:opacity-90 transition-opacity"
-                        >
-                          <GitMerge className="w-4 h-4" /> 연쇄 업무 설정
-                        </button>
-                      </div>
+                  <div className="flex-1 bg-surface rounded-2xl border border-border p-4 md:p-5 shadow-sm overflow-y-auto">
+                    <div className="space-y-4">
 
                       {tasks.filter(t => !t.prevTaskId && t.nextTaskId).filter(startTask => {
                           // Traverse chain to find last task
