@@ -2939,20 +2939,24 @@ function TaskColumn({
 }
 
 const TASK_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#f59e0b",
-  "#84cc16",
-  "#10b981",
-  "#14b8a6",
-  "#06b6d4",
-  "#3b82f6",
-  "#6366f1",
-  "#8b5cf6",
-  "#d946ef",
-  "#ec4899",
-  "#f43f5e",
-  "#64748b",
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#f59e0b", // Amber / Gold
+  "#84cc16", // Lime
+  "#10b981", // Emerald
+  "#14b8a6", // Teal
+  "#06b6d4", // Cyan
+  "#0284c7", // Sky / Light Blue
+  "#3b82f6", // Blue
+  "#6366f1", // Indigo
+  "#8b5cf6", // Purple
+  "#d946ef", // Fuchsia / Pink
+  "#ec4899", // Rose Pink
+  "#f43f5e", // Dark Coral
+  "#94a3b8", // Slate Light
+  "#64748b", // Slate Medium
+  "#475569", // Dark Slate
+  "#334155", // Deep Dark Slate
 ];
 
 function TaskForm({
@@ -3169,14 +3173,14 @@ function TaskForm({
 
         <div>
           <label className="block text-xs font-bold mb-1">색상 지정</label>
-          <div className="flex flex-wrap gap-1 py-1">
+          <div className="grid grid-cols-6 gap-1.5 py-1 max-w-[280px]">
             {TASK_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
                 className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
-                  color === c ? "scale-110 ring-2 ring-on-surface" : "hover:scale-105 opacity-80"
+                  color === c ? "scale-110 ring-2 ring-on-surface shadow-md" : "hover:scale-105 opacity-90"
                 }`}
                 style={{ backgroundColor: c }}
               >
@@ -3805,6 +3809,21 @@ function FullCalendar({
                       </button>
                     ))}
                   </div>
+                  {/* Today Button inside Month Selector */}
+                  <div className="mt-3 pt-3 border-t border-border flex justify-center">
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        setCurrentDate(now);
+                        onSelectDate(now);
+                        setShowSelector(false);
+                      }}
+                      className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      오늘 날짜로 이동 ({format(new Date(), "M월 d일")})
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>
@@ -3843,6 +3862,20 @@ function FullCalendar({
                       );
                     })}
                   </div>
+                  <div className="mt-3 pt-3 border-t border-border flex justify-center">
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        setCurrentDate(now);
+                        onSelectDate(now);
+                        setShowSelector(false);
+                      }}
+                      className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      오늘 날짜로 이동 ({format(new Date(), "M월 d일")})
+                    </button>
+                  </div>
                 </>
               )}
             </motion.div>
@@ -3869,23 +3902,15 @@ function FullCalendar({
               {paddingDays.map((i) => (
                 <div key={`pad-${i}`} className="p-1 rounded-lg bg-surface/30" />
               ))}
-              {daysToShow.map((day) => {
-                const isT = isToday(day);
-                const isSel = selectedDate && isSameDay(day, selectedDate);
-                const dayOfWeek = getDay(day);
-                const isSun = dayOfWeek === 0;
-                const isSat = dayOfWeek === 6;
-                const dayTasks = tasks.filter((t) => {
-                  if (t.startDate && t.endDate) {
-                    const start = startOfDay(parseISO(t.startDate));
-                    const end = startOfDay(parseISO(t.endDate));
-                    const target = startOfDay(day);
-                    return isWithinInterval(target, { start, end });
-                  }
-                  return isSameDay(parseISO(t.deadline), day);
-                });
+              {(() => {
+                // Calculate task slots for the current visible month view to align multi-day bars across days
+                const dayTaskMap: { [dateStr: string]: { task: Task; slot: number }[] } = {};
+                
+                // Track slots per day
+                const daySlotOccupancy: { [dateStr: string]: boolean[] } = {};
 
-                dayTasks.sort((a, b) => {
+                // Sort all tasks: multi-day first (longer duration first), then title
+                const sortedAllTasks = [...tasks].sort((a, b) => {
                   const getDuration = (t: Task) => {
                     if (t.startDate && t.endDate) {
                       const start = startOfDay(parseISO(t.startDate));
@@ -3896,69 +3921,154 @@ function FullCalendar({
                   };
                   const durA = getDuration(a);
                   const durB = getDuration(b);
-                  if (durA !== durB) {
-                    return durB - durA;
-                  }
+                  if (durA !== durB) return durB - durA;
+                  
+                  const startA = a.startDate ? parseISO(a.startDate).getTime() : parseISO(a.deadline).getTime();
+                  const startB = b.startDate ? parseISO(b.startDate).getTime() : parseISO(b.deadline).getTime();
+                  if (startA !== startB) return startA - startB;
+
                   return a.title.localeCompare(b.title);
                 });
 
-                return (
-                  <div
-                    key={day.toString()}
-                    onClick={() => {
-                      onSelectDate(isSel ? null : day);
-                    }}
-                    className={`p-1.5 sm:p-2.5 rounded-xl bg-surface border ${
-                      isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
-                    } flex flex-col min-h-[90px] sm:min-h-[115px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
-                  >
-                    <div className={`text-xs sm:text-base font-bold mb-1.5 flex items-center justify-between ${
-                      isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
-                    }`}>
-                      <span>{format(day, "d")}</span>
-                      {isT && (
-                        <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
-                      )}
+                // Assign slots to tasks
+                sortedAllTasks.forEach((task) => {
+                  // Find all days this task occupies in current month view
+                  const taskDays = daysToShow.filter((day) => {
+                    if (task.startDate && task.endDate) {
+                      const start = startOfDay(parseISO(task.startDate));
+                      const end = startOfDay(parseISO(task.endDate));
+                      const target = startOfDay(day);
+                      return isWithinInterval(target, { start, end });
+                    }
+                    return isSameDay(parseISO(task.deadline), day);
+                  });
+
+                  if (taskDays.length === 0) return;
+
+                  // Find lowest slot available across ALL days spanned by this task
+                  let slot = 0;
+                  while (true) {
+                    let hasConflict = false;
+                    for (const day of taskDays) {
+                      const key = format(day, "yyyy-MM-dd");
+                      if (!daySlotOccupancy[key]) daySlotOccupancy[key] = [];
+                      if (daySlotOccupancy[key][slot]) {
+                        hasConflict = true;
+                        break;
+                      }
+                    }
+                    if (!hasConflict) break;
+                    slot++;
+                  }
+
+                  // Mark slot occupied for each day
+                  taskDays.forEach((day) => {
+                    const key = format(day, "yyyy-MM-dd");
+                    if (!daySlotOccupancy[key]) daySlotOccupancy[key] = [];
+                    daySlotOccupancy[key][slot] = true;
+
+                    if (!dayTaskMap[key]) dayTaskMap[key] = [];
+                    dayTaskMap[key].push({ task, slot });
+                  });
+                });
+
+                return daysToShow.map((day) => {
+                  const isT = isToday(day);
+                  const isSel = selectedDate && isSameDay(day, selectedDate);
+                  const dayOfWeek = getDay(day);
+                  const isSun = dayOfWeek === 0;
+                  const isSat = dayOfWeek === 6;
+                  
+                  const dayKey = format(day, "yyyy-MM-dd");
+                  const assignedItems = dayTaskMap[dayKey] || [];
+                  // Sort assigned items by slot for rendering order
+                  assignedItems.sort((a, b) => a.slot - b.slot);
+
+                  // Create render slots array with empty placeholders if needed
+                  const maxSlot = assignedItems.length > 0 ? Math.max(...assignedItems.map(i => i.slot)) : -1;
+                  const renderedSlots: (Task | null)[] = [];
+                  for (let i = 0; i <= maxSlot; i++) {
+                    const found = assignedItems.find(item => item.slot === i);
+                    renderedSlots.push(found ? found.task : null);
+                  }
+
+                  return (
+                    <div
+                      key={day.toString()}
+                      onClick={() => {
+                        onSelectDate(isSel ? null : day);
+                      }}
+                      className={`p-1.5 sm:p-2.5 rounded-xl bg-surface border ${
+                        isT ? "border-primary shadow-sm" : isSel ? "border-tertiary ring-2 ring-tertiary/20" : "border-border"
+                      } flex flex-col min-h-[90px] sm:min-h-[115px] overflow-hidden cursor-pointer hover:border-primary/50 transition-all`}
+                    >
+                      <div className={`text-xs sm:text-base font-bold mb-1.5 flex items-center justify-between ${
+                        isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-on-surface"
+                      }`}>
+                        <span>{format(day, "d")}</span>
+                        {isT && (
+                          <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-on-primary">오늘</span>
+                        )}
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-1 cell-scroll hidden sm:block">
+                        {renderedSlots.map((t, idx) => {
+                          if (!t) {
+                            return <div key={`empty-${idx}`} className="h-[26px]" />;
+                          }
+
+                          const isStart = t.startDate ? isSameDay(parseISO(t.startDate), day) : true;
+                          const isEnd = t.endDate ? isSameDay(parseISO(t.endDate), day) : true;
+
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditTask(t);
+                              }}
+                              onContextMenu={(e) => {
+                                if (onContextMenu) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onContextMenu(e, t);
+                                }
+                              }}
+                              style={{ backgroundColor: t.color || "#4a7c59" }}
+                              className={`text-white text-xs sm:text-[12px] font-semibold px-2 py-1 truncate leading-snug shadow-sm cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-between ${
+                                isStart && isEnd
+                                  ? "rounded-md"
+                                  : isStart
+                                  ? "rounded-l-md rounded-r-none"
+                                  : isEnd
+                                  ? "rounded-r-md rounded-l-none"
+                                  : "rounded-none opacity-95"
+                              }`}
+                              title={t.title}
+                            >
+                              <span className={`truncate ${t.status === "DONE" ? "line-through opacity-75" : ""}`}>
+                                {t.title}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Tiny dots indicator for mobile views */}
+                      <div className="flex flex-wrap gap-0.5 mt-auto sm:hidden">
+                        {assignedItems.slice(0, 3).map(({ task: t }) => (
+                          <span
+                            key={t.id}
+                            style={{ backgroundColor: t.color || "#4a7c59" }}
+                            className="w-1.5 h-1.5 rounded-full inline-block"
+                          />
+                        ))}
+                        {assignedItems.length > 3 && (
+                          <span className="text-[7px] leading-[6px] font-bold text-on-surface-variant">+</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-1.5 cell-scroll hidden sm:block">
-                      {dayTasks.map((t) => (
-                        <div
-                          key={t.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditTask(t);
-                          }}
-                          onContextMenu={(e) => {
-                            if (onContextMenu) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onContextMenu(e, t);
-                            }
-                          }}
-                          style={{ backgroundColor: t.color || "#4a7c59" }}
-                          className="text-white text-xs sm:text-[13px] font-semibold px-2 py-1 rounded-md truncate leading-snug shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                          title={t.title}
-                        >
-                          <span className={t.status === "DONE" ? "line-through opacity-75" : ""}>{t.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Tiny dots indicator for mobile views */}
-                    <div className="flex flex-wrap gap-0.5 mt-auto sm:hidden">
-                      {dayTasks.slice(0, 3).map((t) => (
-                        <span
-                          key={t.id}
-                          style={{ backgroundColor: t.color || "#4a7c59" }}
-                          className="w-1.5 h-1.5 rounded-full inline-block"
-                        />
-                      ))}
-                      {dayTasks.length > 3 && (
-                        <span className="text-[7px] leading-[6px] font-bold text-on-surface-variant">+</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         ) : (
