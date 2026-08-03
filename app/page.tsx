@@ -731,7 +731,69 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
         });
       }
 
-      updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
+      // Check recurrence changes
+      const oldRecurrence: RecurrenceType | "NONE" = editingTask.recurrence || "NONE";
+      const newRecurrence: RecurrenceType | "NONE" = updatedTask.recurrence || "NONE";
+      const rootId = editingTask.parentId || editingTask.id;
+
+      if (newRecurrence === "NONE") {
+        // If recurrence removed, delete related auto-generated child tasks (except modified ones if needed, or all children of root)
+        updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
+        updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
+      } else if ((oldRecurrence as string) !== (newRecurrence as string)) {
+        // If recurrence was added or changed type, remove old generated child tasks and regenerate 5 new ones
+        updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
+        updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
+
+        const recurrentTasks: Task[] = [];
+        let recurrenceCount = 5;
+        let lastDate = parseISO(updatedTask.deadline);
+        let originalStart = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
+        let originalEnd = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
+
+        for (let i = 1; i <= recurrenceCount; i++) {
+          const getNextDate = (d: Date) => {
+            if (newRecurrence === "WEEKLY") return addWeeks(d, i);
+            if (newRecurrence === "MONTHLY") return addMonths(d, i);
+            if (newRecurrence === "QUARTERLY") return addMonths(d, i * 3);
+            if (newRecurrence === "SEMI_ANNUALLY") return addMonths(d, i * 6);
+            return addYears(d, i);
+          };
+
+          const nextDate = getNextDate(lastDate);
+          const nextStart = originalStart ? getNextDate(originalStart) : undefined;
+          const nextEnd = originalEnd ? getNextDate(originalEnd) : undefined;
+
+          recurrentTasks.push({
+            ...updatedTask,
+            id: crypto.randomUUID(),
+            parentId: rootId,
+            deadline: nextDate.toISOString(),
+            startDate: nextStart ? nextStart.toISOString() : undefined,
+            endDate: nextEnd ? nextEnd.toISOString() : undefined,
+            status: "TODO",
+            createdAt: new Date().toISOString(),
+            completedAt: undefined,
+          });
+        }
+        updatedTasks = [...updatedTasks, ...recurrentTasks];
+      } else {
+        // Recurrence remains same non-NONE: sync common properties to sibling/child tasks in the same group
+        updatedTasks = updatedTasks.map((t) => {
+          if (t.id === editingTask.id) return updatedTask;
+          if (t.parentId === rootId || t.id === rootId) {
+            return {
+              ...t,
+              title: updatedTask.title,
+              description: updatedTask.description,
+              type: updatedTask.type,
+              color: updatedTask.color,
+              recurrence: updatedTask.recurrence,
+            };
+          }
+          return t;
+        });
+      }
     } else {
       // Create new
       const newId = crypto.randomUUID();
@@ -1571,23 +1633,33 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
                       <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">주간 업무</h4>
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{tasks.filter(t => t.recurrence === "WEEKLY").length}개</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          {new Set(tasks.filter(t => t.recurrence === "WEEKLY").map(t => t.parentId || t.id)).size}개
+                        </p>
                       </div>
                       <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">월간 업무</h4>
-                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{tasks.filter(t => t.recurrence === "MONTHLY").length}개</p>
+                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {new Set(tasks.filter(t => t.recurrence === "MONTHLY").map(t => t.parentId || t.id)).size}개
+                        </p>
                       </div>
                       <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">분기 업무</h4>
-                        <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{tasks.filter(t => t.recurrence === "QUARTERLY").length}개</p>
+                        <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                          {new Set(tasks.filter(t => t.recurrence === "QUARTERLY").map(t => t.parentId || t.id)).size}개
+                        </p>
                       </div>
                       <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">반기 업무</h4>
-                        <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{tasks.filter(t => t.recurrence === "SEMI_ANNUALLY").length}개</p>
+                        <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                          {new Set(tasks.filter(t => t.recurrence === "SEMI_ANNUALLY").map(t => t.parentId || t.id)).size}개
+                        </p>
                       </div>
                       <div className="p-3.5 rounded-xl border border-border bg-surface-variant/20">
                         <h4 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">연간 업무</h4>
-                        <p className="text-xl font-bold text-rose-600 dark:text-rose-400">{tasks.filter(t => t.recurrence === "ANNUALLY").length}개</p>
+                        <p className="text-xl font-bold text-rose-600 dark:text-rose-400">
+                          {new Set(tasks.filter(t => t.recurrence === "ANNUALLY").map(t => t.parentId || t.id)).size}개
+                        </p>
                       </div>
                     </div>
 
@@ -3091,7 +3163,7 @@ function TaskForm({
             <option value="MONTHLY">매월 반복</option>
             <option value="QUARTERLY">매분기 반복</option>
             <option value="SEMI_ANNUALLY">매반기 반복</option>
-            <option value="ANNUALLY">매년 반복 (정기 업무)</option>
+            <option value="ANNUALLY">매년 반복</option>
           </select>
         </div>
 
@@ -4108,6 +4180,51 @@ function PeriodicTable({
     );
   }
 
+  // Deduplicate tasks by root parent ID (or task ID if no parentId) to show only 1 row per recurring task configuration
+  const groupedMap = new Map<string, Task>();
+  tasks.forEach((task) => {
+    const rootId = task.parentId || task.id;
+    if (!groupedMap.has(rootId)) {
+      groupedMap.set(rootId, task);
+    } else {
+      // Pick parent task or earliest scheduled task as representative
+      const existing = groupedMap.get(rootId)!;
+      if (task.id === rootId || parseISO(task.deadline) < parseISO(existing.deadline)) {
+        groupedMap.set(rootId, task);
+      }
+    }
+  });
+
+  const uniqueTasks = Array.from(groupedMap.values());
+
+  const formatSchedule = (task: Task) => {
+    const date = parseISO(task.deadline);
+    switch (task.recurrence) {
+      case "WEEKLY": {
+        const dayOfWeek = format(date, "EEEE", { locale: ko }); // e.g. 월요일
+        return `매주 ${dayOfWeek}`;
+      }
+      case "MONTHLY": {
+        const day = format(date, "d일", { locale: ko });
+        return `매월 ${day}`;
+      }
+      case "QUARTERLY": {
+        const monthDay = format(date, "M월 d일", { locale: ko });
+        return `매분기 (${monthDay} 기준)`;
+      }
+      case "SEMI_ANNUALLY": {
+        const monthDay = format(date, "M월 d일", { locale: ko });
+        return `매반기 (${monthDay} 기준)`;
+      }
+      case "ANNUALLY": {
+        const monthDay = format(date, "M월 d일", { locale: ko });
+        return `매년 ${monthDay}`;
+      }
+      default:
+        return format(date, "yyyy년 MM월 dd일", { locale: ko });
+    }
+  };
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-surface">
       <table className="w-full text-left text-sm border-collapse">
@@ -4121,12 +4238,12 @@ function PeriodicTable({
           </tr>
         </thead>
         <tbody>
-          {tasks.map((task) => (
+          {uniqueTasks.map((task) => (
             <tr key={task.id} className="border-b border-border/40 hover:bg-surface-variant/20 transition-colors">
               <td className="p-3 font-bold text-on-surface">{task.title}</td>
               <td className="p-3"><TaskBadge type={task.type} /></td>
               <td className="p-3 font-medium text-xs text-on-surface-variant">
-                {format(parseISO(task.deadline), "yyyy년 MM월 dd일", { locale: ko })}
+                {formatSchedule(task)}
               </td>
               <td className="p-3">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
