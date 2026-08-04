@@ -582,7 +582,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       setNotes(loadedNotes);
       if (themeMode === "dark") {
         setIsDarkMode(true);
-        document.documentElement.classList.add("dark");
+        applyThemeWithNoTransition(true);
       }
       setLastSaved(new Date());
       setIsLoading(false);
@@ -590,6 +590,21 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
     initialize();
   }, []);
+
+  // Helper to change theme without laggy color transitions
+  const applyThemeWithNoTransition = (isDark: boolean) => {
+    document.documentElement.classList.add("no-transitions");
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    // Force reflow so theme colors apply instantly
+    window.getComputedStyle(document.documentElement).opacity;
+    requestAnimationFrame(() => {
+      document.documentElement.classList.remove("no-transitions");
+    });
+  };
 
   // Save changes for tasks and notes
   const saveTasksState = async (newTasks: Task[], newNotes: Note[] = notes) => {
@@ -624,11 +639,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
-    if (newTheme) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    applyThemeWithNoTransition(newTheme);
     
     const data = {
       tasks,
