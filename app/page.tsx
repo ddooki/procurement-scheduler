@@ -3262,44 +3262,50 @@ function TaskForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-bold mb-1">유형</label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as TaskType)}
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
-          >
-             <option value="GENERAL">일반</option>
-            <option value="MEETING">미팅</option>
-            <option value="BID">입찰</option>
-            <option value="SUBMISSION">업무 제출</option>
-            <option value="HOLIDAY">휴일</option>
-            <option value="COMPANY_HOLIDAY">지정연차</option>
-            <option value="PERSONAL_LEAVE">연차/휴가</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold mb-1">반복 주기설정</label>
-          <div className="flex gap-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+        {/* Left column: Type & Recurrence */}
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-bold mb-1">유형</label>
             <select
-              value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-              className="flex-1 px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
+              value={type}
+              onChange={(e) => setType(e.target.value as TaskType)}
+              className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
             >
-              <option value="NONE">반복 없음</option>
-              <option value="WEEKLY">매주 반복</option>
-              <option value="MONTHLY">매월 반복</option>
-              <option value="QUARTERLY">매분기 반복</option>
-              <option value="SEMI_ANNUALLY">매반기 반복</option>
-              <option value="ANNUALLY">매년 반복</option>
+              <option value="GENERAL">일반</option>
+              <option value="MEETING">미팅</option>
+              <option value="BID">입찰</option>
+              <option value="SUBMISSION">업무 제출</option>
+              <option value="HOLIDAY">휴일</option>
+              <option value="COMPANY_HOLIDAY">지정연차</option>
+              <option value="PERSONAL_LEAVE">연차/휴가</option>
             </select>
-            {recurrence !== "NONE" && (
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">반복 주기설정</label>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={recurrence}
+                onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
+                className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs sm:text-sm min-h-[48px]"
+              >
+                <option value="NONE">반복 없음</option>
+                <option value="WEEKLY">매주 반복</option>
+                <option value="MONTHLY">매월 반복</option>
+                <option value="QUARTERLY">매분기 반복</option>
+                <option value="SEMI_ANNUALLY">매반기 반복</option>
+                <option value="ANNUALLY">매년 반복</option>
+              </select>
               <select
                 value={recurrenceCount}
                 onChange={(e) => setRecurrenceCount(Number(e.target.value))}
-                className="w-24 px-2 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs font-bold min-h-[48px]"
+                disabled={recurrence === "NONE"}
+                className={`w-full px-2 py-2 rounded-xl border border-border text-xs sm:text-sm font-bold min-h-[48px] focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                  recurrence === "NONE"
+                    ? "bg-surface-variant/40 text-on-surface-variant/40 border-border/50 cursor-not-allowed"
+                    : "bg-surface text-on-surface"
+                }`}
               >
                 <option value={3}>3회 (약 3개월/3주)</option>
                 <option value={5}>5회 (기본)</option>
@@ -3307,13 +3313,14 @@ function TaskForm({
                 <option value={12}>12회 (1년치)</option>
                 <option value={24}>24회 (2년치)</option>
               </select>
-            )}
+            </div>
           </div>
         </div>
 
+        {/* Right column: Color selection */}
         <div>
           <label className="block text-xs font-bold mb-1">색상 지정</label>
-          <div className="grid grid-cols-6 gap-1.5 py-1 max-w-[280px]">
+          <div className="grid grid-cols-6 gap-1.5 py-1.5 max-w-[280px]">
             {TASK_COLORS.map((c) => (
               <button
                 key={c}
