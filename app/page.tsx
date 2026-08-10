@@ -719,7 +719,8 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
 
   const handleSaveTask = async (
     taskData: Omit<Task, "id" | "createdAt">,
-    isDuplicate?: boolean
+    isDuplicate?: boolean,
+    customRecurrenceCount?: number
   ) => {
     let updatedTasks = [...tasks];
     let targetId = "";
@@ -756,13 +757,13 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
         // If recurrence removed, delete related auto-generated child tasks (except modified ones if needed, or all children of root)
         updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
         updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
-      } else if ((oldRecurrence as string) !== (newRecurrence as string)) {
-        // If recurrence was added or changed type, remove old generated child tasks and regenerate 5 new ones
+      } else if ((oldRecurrence as string) !== (newRecurrence as string) || customRecurrenceCount) {
+        // If recurrence was added or changed type or count updated, remove old generated child tasks and regenerate
         updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
         updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
 
         const recurrentTasks: Task[] = [];
-        let recurrenceCount = 5;
+        let recurrenceCount = customRecurrenceCount || 5;
         let lastDate = parseISO(updatedTask.deadline);
         let originalStart = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
         let originalEnd = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
@@ -839,7 +840,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       // Generate future recurrent tasks if recurrence is enabled
       const recurrentTasks: Task[] = [];
       if (newTask.recurrence && newTask.recurrence !== "NONE") {
-        let recurrenceCount = 5; // Generate 5 iterations into the future
+        let recurrenceCount = customRecurrenceCount || 5;
         let lastDate = parseISO(newTask.deadline);
         let originalStart = newTask.startDate ? parseISO(newTask.startDate) : null;
         let originalEnd = newTask.endDate ? parseISO(newTask.endDate) : null;
@@ -968,6 +969,20 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     updatedTasks = updatedTasks.filter((t) => t.id !== id);
     await saveTasksState(updatedTasks);
     setIsTaskModalOpen(false);
+  };
+
+  const handleDeleteTaskGroup = async (rootId: string) => {
+    let updatedTasks = [...tasks];
+    const groupTaskIds = updatedTasks
+      .filter((t) => (t.parentId || t.id) === rootId)
+      .map((t) => t.id);
+
+    groupTaskIds.forEach((id) => {
+      updatedTasks = clearDeletedTaskDependencies(updatedTasks, id);
+    });
+
+    updatedTasks = updatedTasks.filter((t) => !groupTaskIds.includes(t.id));
+    await saveTasksState(updatedTasks);
   };
 
   const handleSaveChain = async () => {
@@ -2159,6 +2174,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             tasks={tasks}
             onEditTask={openEditTaskModal}
             onDeleteTask={handleDeleteTask}
+            onDeleteGroup={handleDeleteTaskGroup}
             onClose={() => setSelectedPeriodicGroup(null)}
           />
         )}
@@ -3071,7 +3087,7 @@ function TaskForm({
 }: {
   initialData?: Task | null;
   tasks: Task[];
-  onSubmit: (t: Omit<Task, "id" | "createdAt">, isDuplicate?: boolean) => void;
+  onSubmit: (t: Omit<Task, "id" | "createdAt">, isDuplicate?: boolean, customRecurrenceCount?: number) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -3119,6 +3135,7 @@ function TaskForm({
   
   // Recurrence
   const [recurrence, setRecurrence] = useState<RecurrenceType>(initialData?.recurrence || "NONE");
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(5);
 
   // Chain settings
   const [nextTaskId, setNextTaskId] = useState<string>(initialData?.nextTaskId || "");
@@ -3224,7 +3241,8 @@ function TaskForm({
         prevTaskId: prevTaskId || undefined,
         completedAt: isDuplicateMode ? undefined : initialData?.completedAt,
       },
-      isDuplicateMode
+      isDuplicateMode,
+      recurrenceCount
     );
   };
 
@@ -3264,18 +3282,33 @@ function TaskForm({
 
         <div>
           <label className="block text-xs font-bold mb-1">반복 주기설정</label>
-          <select
-            value={recurrence}
-            onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
-          >
-            <option value="NONE">반복 없음</option>
-            <option value="WEEKLY">매주 반복</option>
-            <option value="MONTHLY">매월 반복</option>
-            <option value="QUARTERLY">매분기 반복</option>
-            <option value="SEMI_ANNUALLY">매반기 반복</option>
-            <option value="ANNUALLY">매년 반복</option>
-          </select>
+          <div className="flex gap-1.5">
+            <select
+              value={recurrence}
+              onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
+              className="flex-1 px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
+            >
+              <option value="NONE">반복 없음</option>
+              <option value="WEEKLY">매주 반복</option>
+              <option value="MONTHLY">매월 반복</option>
+              <option value="QUARTERLY">매분기 반복</option>
+              <option value="SEMI_ANNUALLY">매반기 반복</option>
+              <option value="ANNUALLY">매년 반복</option>
+            </select>
+            {recurrence !== "NONE" && (
+              <select
+                value={recurrenceCount}
+                onChange={(e) => setRecurrenceCount(Number(e.target.value))}
+                className="w-24 px-2 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs font-bold min-h-[48px]"
+              >
+                <option value={3}>3회 (약 3개월/3주)</option>
+                <option value={5}>5회 (기본)</option>
+                <option value={6}>6회 (약 반년/6개월)</option>
+                <option value={12}>12회 (1년치)</option>
+                <option value={24}>24회 (2년치)</option>
+              </select>
+            )}
+          </div>
         </div>
 
         <div>
@@ -4465,14 +4498,14 @@ function PeriodicTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-      <table className="w-full text-left text-sm border-collapse">
+      <table className="w-full text-left text-sm border-collapse table-fixed">
         <thead>
           <tr className="bg-surface-variant/50 border-b border-border text-xs font-bold text-on-surface-variant">
-            <th className="p-3 text-left">업무명</th>
-            <th className="p-3 text-left">업무구분</th>
-            <th className="p-3 text-left">예정 시점</th>
-            <th className="p-3 text-left">상세 내용</th>
-            <th className="p-3 text-left">관리</th>
+            <th className="p-3 text-left w-[25%]">업무명</th>
+            <th className="p-3 text-left w-[15%]">업무구분</th>
+            <th className="p-3 text-left w-[20%]">예정 시점</th>
+            <th className="p-3 text-left w-[28%]">상세 내용</th>
+            <th className="p-3 text-left w-[12%]">관리</th>
           </tr>
         </thead>
         <tbody>
@@ -4480,18 +4513,18 @@ function PeriodicTable({
             const rootId = task.parentId || task.id;
             return (
               <tr key={task.id} className="border-b border-border/40 hover:bg-surface-variant/20 transition-colors">
-                <td className="p-3 font-bold text-on-surface text-left">{task.title}</td>
+                <td className="p-3 font-bold text-on-surface text-left truncate">{task.title}</td>
                 <td className="p-3 text-left"><TaskBadge type={task.type} /></td>
                 <td className="p-3 font-medium text-xs text-on-surface-variant text-left">
                   {formatSchedule(task)}
                 </td>
-                <td className="p-3 text-left max-w-xs truncate text-xs text-on-surface-variant">
+                <td className="p-3 text-left truncate text-xs text-on-surface-variant">
                   {task.description ? task.description : <span className="opacity-40">-</span>}
                 </td>
                 <td className="p-3 text-left">
                   <button
                     onClick={() => onViewDetail(rootId, task)}
-                    className="px-3 py-1 text-xs font-bold rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors shadow-sm"
+                    className="px-3 py-1 text-xs font-bold rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors shadow-sm whitespace-nowrap"
                   >
                     상세보기
                   </button>
@@ -4510,12 +4543,14 @@ function PeriodicGroupDetailModal({
   tasks,
   onEditTask,
   onDeleteTask,
+  onDeleteGroup,
   onClose,
 }: {
   groupInfo: { rootId: string; sampleTask: Task };
   tasks: Task[];
   onEditTask: (t: Task) => void;
   onDeleteTask: (id: string) => void;
+  onDeleteGroup: (rootId: string) => void;
   onClose: () => void;
 }) {
   const { rootId, sampleTask } = groupInfo;
@@ -4567,7 +4602,18 @@ function PeriodicGroupDetailModal({
               <h2 className="font-headline text-lg font-bold text-on-surface">{sampleTask.title}</h2>
               <TaskBadge type={sampleTask.type} />
             </div>
-            <p className="text-xs font-bold text-primary mt-1">{formatRangeSummary()} ({groupTasks.length}개 일정)</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs font-bold text-primary">{formatRangeSummary()} ({groupTasks.length}개 일정)</p>
+              <button
+                onClick={() => {
+                  onClose();
+                  onEditTask(sampleTask);
+                }}
+                className="text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors"
+              >
+                기간/주기 수정
+              </button>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -4632,7 +4678,7 @@ function PeriodicGroupDetailModal({
           <button
             onClick={() => {
               if (confirm(`'${sampleTask.title}' 전체 정기 반복 일정을 모두 삭제하시겠습니까?`)) {
-                groupTasks.forEach((t) => onDeleteTask(t.id));
+                onDeleteGroup(rootId);
                 onClose();
               }
             }}
