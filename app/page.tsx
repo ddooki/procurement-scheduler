@@ -359,6 +359,7 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isBatchGroupEdit, setIsBatchGroupEdit] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [rescheduleTask, setRescheduleTask] = useState<Task | null>(null);
   const [isSingleEditNoticeOpen, setIsSingleEditNoticeOpen] = useState(false);
@@ -634,6 +635,18 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(newNotes));
   };
 
+  const openNewTaskModal = (initialDate?: Date) => {
+    setEditingTask(initialDate ? ({ deadline: initialDate.toISOString(), startDate: initialDate.toISOString(), endDate: initialDate.toISOString() } as any) : null);
+    setIsBatchGroupEdit(false);
+    setIsTaskModalOpen(true);
+  };
+
+  const openEditTaskModal = (task: Task, isBatchEdit: boolean = false) => {
+    setEditingTask(task);
+    setIsBatchGroupEdit(isBatchEdit);
+    setIsTaskModalOpen(true);
+  };
+
   const saveNotesState = async (newNotes: Note[], currentTasks: Task[] = tasks) => {
     await saveTasksState(currentTasks, newNotes);
   };
@@ -754,50 +767,84 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
       const rootId = editingTask.parentId || editingTask.id;
 
       if (newRecurrence === "NONE") {
-        // If recurrence removed, delete related auto-generated child tasks (except modified ones if needed, or all children of root)
+        // If recurrence removed, delete related auto-generated child tasks
         updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
         updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
-      } else if ((oldRecurrence as string) !== (newRecurrence as string) || customRecurrenceCount) {
-        // If recurrence was added or changed type or count updated, remove old generated child tasks and regenerate
-        updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
-        updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
+      } else if (isBatchGroupEdit) {
+        // Batch Edit: update or regenerate entire group
+        if ((oldRecurrence as string) !== (newRecurrence as string) || customRecurrenceCount) {
+          updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
+          updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
 
-        const recurrentTasks: Task[] = [];
-        let recurrenceCount = customRecurrenceCount || 5;
-        let lastDate = parseISO(updatedTask.deadline);
-        let originalStart = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
-        let originalEnd = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
+          const recurrentTasks: Task[] = [];
+          let recurrenceCount = customRecurrenceCount || 5;
+          let lastDate = parseISO(updatedTask.deadline);
+          let originalStart = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
+          let originalEnd = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
 
-        for (let i = 1; i <= recurrenceCount; i++) {
-          const getNextDate = (d: Date) => {
-            if (newRecurrence === "WEEKLY") return addWeeks(d, i);
-            if (newRecurrence === "MONTHLY") return addMonths(d, i);
-            if (newRecurrence === "QUARTERLY") return addMonths(d, i * 3);
-            if (newRecurrence === "SEMI_ANNUALLY") return addMonths(d, i * 6);
-            return addYears(d, i);
-          };
+          for (let i = 1; i <= recurrenceCount; i++) {
+            const getNextDate = (d: Date) => {
+              if (newRecurrence === "WEEKLY") return addWeeks(d, i);
+              if (newRecurrence === "MONTHLY") return addMonths(d, i);
+              if (newRecurrence === "QUARTERLY") return addMonths(d, i * 3);
+              if (newRecurrence === "SEMI_ANNUALLY") return addMonths(d, i * 6);
+              return addYears(d, i);
+            };
 
-          const nextDate = getNextDate(lastDate);
-          const nextStart = originalStart ? getNextDate(originalStart) : undefined;
-          const nextEnd = originalEnd ? getNextDate(originalEnd) : undefined;
+            const nextDate = getNextDate(lastDate);
+            const nextStart = originalStart ? getNextDate(originalStart) : undefined;
+            const nextEnd = originalEnd ? getNextDate(originalEnd) : undefined;
 
-          recurrentTasks.push({
-            ...updatedTask,
-            id: crypto.randomUUID(),
-            parentId: rootId,
-            deadline: nextDate.toISOString(),
-            startDate: nextStart ? nextStart.toISOString() : undefined,
-            endDate: nextEnd ? nextEnd.toISOString() : undefined,
-            status: "TODO",
-            createdAt: new Date().toISOString(),
-            completedAt: undefined,
+            recurrentTasks.push({
+              ...updatedTask,
+              id: crypto.randomUUID(),
+              parentId: rootId,
+              deadline: nextDate.toISOString(),
+              startDate: nextStart ? nextStart.toISOString() : undefined,
+              endDate: nextEnd ? nextEnd.toISOString() : undefined,
+              status: "TODO",
+              createdAt: new Date().toISOString(),
+              completedAt: undefined,
+            });
+          }
+          updatedTasks = [...updatedTasks, ...recurrentTasks];
+        } else {
+          // Sync group-wide settings (title, type, color, description, dates) to all siblings
+          const startNew = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
+          const endNew = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
+
+          updatedTasks = updatedTasks.map((t) => {
+            if (t.id === rootId || t.parentId === rootId) {
+              let tStart = t.startDate ? parseISO(t.startDate) : parseISO(t.deadline);
+              let tEnd = t.endDate ? parseISO(t.endDate) : null;
+
+              if (startNew) {
+                tStart.setDate(startNew.getDate());
+                tStart.setHours(startNew.getHours(), startNew.getMinutes(), startNew.getSeconds());
+              }
+              if (endNew) {
+                if (!tEnd) tEnd = new Date(tStart);
+                tEnd.setDate(endNew.getDate());
+                tEnd.setHours(endNew.getHours(), endNew.getMinutes(), endNew.getSeconds());
+              }
+
+              return {
+                ...t,
+                title: updatedTask.title,
+                description: updatedTask.description,
+                type: updatedTask.type,
+                color: updatedTask.color,
+                recurrence: updatedTask.recurrence,
+                startDate: tStart ? tStart.toISOString() : t.startDate,
+                endDate: tEnd ? tEnd.toISOString() : t.endDate,
+              };
+            }
+            return t;
           });
         }
-        updatedTasks = [...updatedTasks, ...recurrentTasks];
       } else {
-        // Recurrence remains same non-NONE: update ONLY the targeted single instance
+        // Individual Edit: update strictly the targeted single instance
         updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
-
         setIsSingleEditNoticeOpen(true);
       }
     } else {
@@ -863,28 +910,7 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     setEditingTask(null);
   };
 
-  const openNewTaskModal = (defaultDate?: Date) => {
-    if (defaultDate) {
-      setEditingTask({
-        id: "",
-        title: "",
-        type: "GENERAL",
-        deadline: defaultDate.toISOString(),
-        status: "TODO",
-        startDate: defaultDate.toISOString(),
-        endDate: defaultDate.toISOString(),
-        createdAt: "",
-      });
-    } else {
-      setEditingTask(null);
-    }
-    setIsTaskModalOpen(true);
-  };
 
-  const openEditTaskModal = (task: Task) => {
-    setEditingTask(task);
-    setIsTaskModalOpen(true);
-  };
 
   const openRescheduleTaskModal = (task: Task) => {
     setRescheduleTask(task);
@@ -2070,7 +2096,11 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             >
               <div className="flex justify-between items-center p-6 border-b border-border flex-shrink-0">
                 <h2 className="font-headline text-xl font-bold">
-                  {editingTask && editingTask.id ? "일정 수정" : "새 일정 등록"}
+                  {editingTask && editingTask.id
+                    ? isBatchGroupEdit
+                      ? "전체 일정 일괄 수정"
+                      : "개별 회차 수정"
+                    : "새 일정 등록"}
                 </h2>
                 <button
                   onClick={() => setIsTaskModalOpen(false)}
@@ -4443,9 +4473,11 @@ function PeriodicTable({
     if (!groupedMap.has(rootId)) {
       groupedMap.set(rootId, task);
     } else {
-      // Pick parent task or earliest scheduled task as representative
+      // Prioritize the root/parent task itself as the representative setting of the group
       const existing = groupedMap.get(rootId)!;
-      if (task.id === rootId || parseISO(task.deadline) < parseISO(existing.deadline)) {
+      if (task.id === rootId) {
+        groupedMap.set(rootId, task);
+      } else if (existing.id !== rootId && parseISO(task.deadline) < parseISO(existing.deadline)) {
         groupedMap.set(rootId, task);
       }
     }
@@ -4560,7 +4592,7 @@ function PeriodicGroupDetailModal({
 }: {
   groupInfo: { rootId: string; sampleTask: Task };
   tasks: Task[];
-  onEditTask: (t: Task) => void;
+  onEditTask: (t: Task, isBatchEdit?: boolean) => void;
   onDeleteTask: (id: string) => void;
   onDeleteGroup: (rootId: string) => void;
   onClose: () => void;
@@ -4619,11 +4651,12 @@ function PeriodicGroupDetailModal({
               <button
                 onClick={() => {
                   onClose();
-                  onEditTask(sampleTask);
+                  onEditTask(sampleTask, true); // edit all flag
                 }}
                 className="text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors"
+                title="이 정기 반복 그룹의 전체 일정을 일괄 수정합니다"
               >
-                기간/주기 수정
+                전체 일괄 수정
               </button>
             </div>
           </div>
