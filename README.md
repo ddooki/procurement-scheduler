@@ -64,6 +64,10 @@ npm run start
 
 ## 📜 변경 및 업데이트 이력 (Changelog)
 
+### v1.5.4 (2026-08-10) - 폰트 스타일 통일성 확보 & 반복 횟수 직접 입력 전환
+- **UI/UX**: 모달 내 모든 입력 폼(제목, 유형, 주기, 횟수, 시작/종료일시, 연쇄업무 등)의 폰트 스타일을 동일한 크기와 굵기(`text-sm font-normal`)로 통합하여 시각적 일관성 완벽 구현
+- **FEAT**: 반복 횟수 고정 선택 드롭다운을 직접 입력 가능한 숫자 필드(`placeholder="횟수 (예: 5)"`)로 변경하여 주간/월간/분기 등 모든 주기 단위에서 왜곡 없이 정확한 횟수 지정 가능
+
 ### v1.5.3 (2026-08-10) - 색상 팔레트 순서 최적화 & 모달 좌우 여백 균형 재조정
 - **UI/UX**: 18종 색상 팔레트를 Red $\rightarrow$ Rose $\rightarrow$ Pink $\rightarrow$ Orange $\rightarrow$ Amber $\rightarrow$ Lime $\rightarrow$ Emerald $\rightarrow$ Teal $\rightarrow$ Cyan $\rightarrow$ Sky Blue $\rightarrow$ Blue $\rightarrow$ Indigo $\rightarrow$ Purple $\rightarrow$ Deep Violet $\rightarrow$ Slate 모노톤으로 재정렬하여 빨강/핑크 중복 착시 제거
 - **UI/UX**: 모달 그리드를 7:5 비율(`col-span-7` / `col-span-5`)로 조정하고 색상 지정 영역을 우측 정렬하여 불필요한 좌우/하단 여백 불균형 해소

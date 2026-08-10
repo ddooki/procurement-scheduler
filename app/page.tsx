@@ -3135,7 +3135,7 @@ function TaskForm({
   
   // Recurrence
   const [recurrence, setRecurrence] = useState<RecurrenceType>(initialData?.recurrence || "NONE");
-  const [recurrenceCount, setRecurrenceCount] = useState<number>(5);
+  const [recurrenceCountInput, setRecurrenceCountInput] = useState<string>("5");
 
   // Chain settings
   const [nextTaskId, setNextTaskId] = useState<string>(initialData?.nextTaskId || "");
@@ -3226,6 +3226,9 @@ function TaskForm({
       ? new Date(`${endDateStr}T${eTime}`).toISOString()
       : startISO;
 
+    const parsedCount = parseInt(recurrenceCountInput, 10);
+    const countVal = !isNaN(parsedCount) && parsedCount > 0 ? parsedCount : 5;
+
     onSubmit(
       {
         title,
@@ -3242,7 +3245,7 @@ function TaskForm({
         completedAt: isDuplicateMode ? undefined : initialData?.completedAt,
       },
       isDuplicateMode,
-      recurrenceCount
+      countVal
     );
   };
 
@@ -3256,7 +3259,7 @@ function TaskForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="프로젝트 A 입찰 서류 제출..."
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-normal min-h-[48px]"
             required
           />
         </div>
@@ -3283,12 +3286,12 @@ function TaskForm({
           </div>
 
           <div>
-            <label className="block text-xs font-bold mb-1">반복 주기설정</label>
+            <label className="block text-xs font-bold text-on-surface mb-1">반복 주기설정</label>
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-                className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs sm:text-sm h-[44px]"
+                className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs sm:text-sm font-normal h-[44px]"
               >
                 <option value="NONE">반복 없음</option>
                 <option value="WEEKLY">매주 반복</option>
@@ -3297,22 +3300,20 @@ function TaskForm({
                 <option value="SEMI_ANNUALLY">매반기 반복</option>
                 <option value="ANNUALLY">매년 반복</option>
               </select>
-              <select
-                value={recurrenceCount}
-                onChange={(e) => setRecurrenceCount(Number(e.target.value))}
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={recurrenceCountInput}
+                onChange={(e) => setRecurrenceCountInput(e.target.value)}
                 disabled={recurrence === "NONE"}
-                className={`w-full px-2 py-2 rounded-xl border border-border text-xs sm:text-sm font-bold h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                placeholder="횟수 (예: 5)"
+                className={`w-full px-3 py-2 rounded-xl border border-border text-xs sm:text-sm font-normal h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                   recurrence === "NONE"
                     ? "bg-surface-variant/40 text-on-surface-variant/40 border-border/50 cursor-not-allowed"
                     : "bg-surface text-on-surface"
                 }`}
-              >
-                <option value={3}>3회 (약 3개월/3주)</option>
-                <option value={5}>5회 (기본)</option>
-                <option value={6}>6회 (약 반년/6개월)</option>
-                <option value={12}>12회 (1년치)</option>
-                <option value={24}>24회 (2년치)</option>
-              </select>
+              />
             </div>
           </div>
         </div>
