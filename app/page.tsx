@@ -4454,30 +4454,57 @@ function PeriodicTable({
   const uniqueTasks = Array.from(groupedMap.values());
 
   const formatSchedule = (task: Task) => {
-    const date = parseISO(task.deadline);
+    const start = task.startDate ? parseISO(task.startDate) : parseISO(task.deadline);
+    const end = task.endDate ? parseISO(task.endDate) : null;
+    const hasRange = end && !isSameDay(start, end);
+
     switch (task.recurrence) {
       case "WEEKLY": {
-        const dayOfWeek = format(date, "EEEE", { locale: ko }); // e.g. 월요일
-        return `매주 ${dayOfWeek}`;
+        const startDay = format(start, "EEEE", { locale: ko });
+        if (hasRange) {
+          const endDay = format(end, "EEEE", { locale: ko });
+          return `매주 ${startDay}~${endDay}`;
+        }
+        return `매주 ${startDay}`;
       }
       case "MONTHLY": {
-        const day = format(date, "d일", { locale: ko });
-        return `매월 ${day}`;
+        const startD = format(start, "d일", { locale: ko });
+        if (hasRange) {
+          const endD = format(end, "d일", { locale: ko });
+          return `매월 ${startD}~${endD}`;
+        }
+        return `매월 ${startD}`;
       }
       case "QUARTERLY": {
-        const monthDay = format(date, "M월 d일", { locale: ko });
-        return `매분기 (${monthDay} 기준)`;
+        const startMD = format(start, "M월 d일", { locale: ko });
+        if (hasRange) {
+          const endMD = format(end, "M월 d일", { locale: ko });
+          return `매분기 (${startMD}~${endMD})`;
+        }
+        return `매분기 (${startMD} 기준)`;
       }
       case "SEMI_ANNUALLY": {
-        const monthDay = format(date, "M월 d일", { locale: ko });
-        return `매반기 (${monthDay} 기준)`;
+        const startMD = format(start, "M월 d일", { locale: ko });
+        if (hasRange) {
+          const endMD = format(end, "M월 d일", { locale: ko });
+          return `매반기 (${startMD}~${endMD})`;
+        }
+        return `매반기 (${startMD} 기준)`;
       }
       case "ANNUALLY": {
-        const monthDay = format(date, "M월 d일", { locale: ko });
-        return `매년 ${monthDay}`;
+        const startMD = format(start, "M월 d일", { locale: ko });
+        if (hasRange) {
+          const endMD = format(end, "M월 d일", { locale: ko });
+          return `매년 ${startMD}~${endMD}`;
+        }
+        return `매년 ${startMD}`;
       }
-      default:
-        return format(date, "yyyy년 MM월 dd일", { locale: ko });
+      default: {
+        if (hasRange) {
+          return `${format(start, "yyyy년 MM월 dd일", { locale: ko })} ~ ${format(end, "yyyy년 MM월 dd일", { locale: ko })}`;
+        }
+        return format(start, "yyyy년 MM월 dd일", { locale: ko });
+      }
     }
   };
 
