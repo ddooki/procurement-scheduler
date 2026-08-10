@@ -10,6 +10,13 @@
      - `COMPANY_HOLIDAY` (지정연차)
      - `PERSONAL_LEAVE` (연차/휴가)
 
-2. **코드 구현 위치 및 헬퍼 함수**:
-   - `app/page.tsx` 내 `isBusinessDay(date, tasks)` 및 `countBusinessDaysBetween(start, end, tasks)`
-   - 날짜 범위(startDate ~ endDate)에 걸쳐있는 연차/휴일 일정을 파악하여 정확한 영업일수를 계산합니다.
+
+## 기능 수정 및 작업 시 README.md 자동 업데이트 규칙 (Mandatory Rule)
+코드 변경, 기능 추가, UI/UX 개선 등의 작업 시 **반드시 아래 절차를 자동으로 수행**합니다:
+
+1. **`README.md` 내 [핵심 기능] 및 [변경 및 업데이트 이력 (Changelog)] 필수 기록**:
+   - 신규 기능이나 주요 비즈니스 로직 변경이 있을 시 `README.md` 상단 [핵심 기능] 리스트에 추가/반영합니다.
+   - 작업 날짜 기준(`YYYY-MM-DD`)으로 `### vX.X.X (날짜)` 형식의 Changelog 항목을 작성하여 **코드 수정 시 매번 자동으로 `README.md`를 업데이트**합니다.
+2. **저장소 푸시 포함**:
+   - 코드 변경 사항과 함께 `README.md` 업데이트 내역을 함께 커밋 및 푸시하여 세션이 바뀌더라도 항상 모든 개발 이력이 기록 및 보존되도록 합니다.
+
