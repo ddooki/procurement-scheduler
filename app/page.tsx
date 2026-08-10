@@ -795,35 +795,10 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
         }
         updatedTasks = [...updatedTasks, ...recurrentTasks];
       } else {
-        // Recurrence remains same non-NONE: sync common properties to sibling/child tasks in the same group
-        let isSingleInstanceEdit = false;
-        updatedTasks = updatedTasks.map((t) => {
-          if (t.id === editingTask.id) return updatedTask;
-          if (t.parentId === rootId || t.id === rootId) {
-            return {
-              ...t,
-              title: updatedTask.title,
-              description: updatedTask.description,
-              type: updatedTask.type,
-              color: updatedTask.color,
-              recurrence: updatedTask.recurrence,
-            };
-          }
-          return t;
-        });
+        // Recurrence remains same non-NONE: update ONLY the targeted single instance
+        updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
 
-        // Check if date or specific properties changed for single instance
-        if (
-          editingTask.startDate !== updatedTask.startDate ||
-          editingTask.endDate !== updatedTask.endDate ||
-          editingTask.deadline !== updatedTask.deadline
-        ) {
-          isSingleInstanceEdit = true;
-        }
-
-        if (isSingleInstanceEdit) {
-          setIsSingleEditNoticeOpen(true);
-        }
+        setIsSingleEditNoticeOpen(true);
       }
     } else {
       // Create new
