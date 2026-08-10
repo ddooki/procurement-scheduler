@@ -715,11 +715,14 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     }
   };
 
-  const handleSaveTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
+  const handleSaveTask = async (
+    taskData: Omit<Task, "id" | "createdAt">,
+    isDuplicate?: boolean
+  ) => {
     let updatedTasks = [...tasks];
     let targetId = "";
 
-    if (editingTask && editingTask.id) {
+    if (editingTask && editingTask.id && !isDuplicate) {
       targetId = editingTask.id;
       // Modify existing
       const updatedTask = {
@@ -2950,24 +2953,24 @@ function TaskColumn({
 }
 
 const TASK_COLORS = [
-  "#ef4444", // Red
-  "#f97316", // Orange
-  "#f59e0b", // Amber / Gold
-  "#84cc16", // Lime
-  "#10b981", // Emerald
-  "#14b8a6", // Teal
-  "#06b6d4", // Cyan
-  "#0284c7", // Sky / Light Blue
-  "#3b82f6", // Blue
-  "#6366f1", // Indigo
-  "#8b5cf6", // Purple
-  "#d946ef", // Fuchsia / Pink
-  "#ec4899", // Rose Pink
-  "#f43f5e", // Dark Coral
-  "#94a3b8", // Slate Light
-  "#64748b", // Slate Medium
-  "#475569", // Dark Slate
-  "#334155", // Deep Dark Slate
+  "#ef4444", // 1. Red
+  "#f97316", // 2. Orange
+  "#f59e0b", // 3. Amber
+  "#84cc16", // 4. Lime
+  "#10b981", // 5. Emerald
+  "#14b8a6", // 6. Teal
+  "#06b6d4", // 7. Cyan
+  "#0284c7", // 8. Sky Blue
+  "#3b82f6", // 9. Blue
+  "#6366f1", // 10. Indigo
+  "#8b5cf6", // 11. Purple
+  "#d946ef", // 12. Fuchsia
+  "#ec4899", // 13. Pink
+  "#f43f5e", // 14. Rose
+  "#94a3b8", // 15. Slate Light
+  "#64748b", // 16. Slate Medium
+  "#475569", // 17. Slate Dark
+  "#334155", // 18. Slate Deep
 ];
 
 function TaskForm({
@@ -2979,7 +2982,7 @@ function TaskForm({
 }: {
   initialData?: Task | null;
   tasks: Task[];
-  onSubmit: (t: Omit<Task, "id" | "createdAt">) => void;
+  onSubmit: (t: Omit<Task, "id" | "createdAt">, isDuplicate?: boolean) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -3033,6 +3036,7 @@ function TaskForm({
   const [prevTaskId, setPrevTaskId] = useState<string>(initialData?.prevTaskId || "");
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDuplicateMode, setIsDuplicateMode] = useState(false);
 
   // Sync state with initialData when it changes
   useEffect(() => {
@@ -3116,20 +3120,23 @@ function TaskForm({
       ? new Date(`${endDateStr}T${eTime}`).toISOString()
       : startISO;
 
-    onSubmit({
-      title,
-      type,
-      deadline: endISO, // compatibility fallback
-      startDate: startISO,
-      endDate: endISO,
-      status: initialData?.status || "TODO",
-      description: desc,
-      color,
-      recurrence,
-      nextTaskId: nextTaskId || undefined,
-      prevTaskId: prevTaskId || undefined,
-      completedAt: initialData?.completedAt,
-    });
+    onSubmit(
+      {
+        title,
+        type,
+        deadline: endISO, // compatibility fallback
+        startDate: startISO,
+        endDate: endISO,
+        status: isDuplicateMode ? "TODO" : (initialData?.status || "TODO"),
+        description: desc,
+        color,
+        recurrence,
+        nextTaskId: nextTaskId || undefined,
+        prevTaskId: prevTaskId || undefined,
+        completedAt: isDuplicateMode ? undefined : initialData?.completedAt,
+      },
+      isDuplicateMode
+    );
   };
 
   return (
@@ -3354,7 +3361,7 @@ function TaskForm({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mt-2 pt-3 border-t border-border flex-shrink-0 items-center justify-between">
-        {onDelete && (
+        {onDelete && !isDuplicateMode && (
           <div className="w-full sm:w-auto">
             {showDeleteConfirm ? (
               <div className="flex items-center justify-between gap-2 bg-error-container/30 px-3 h-[42px] rounded-xl border border-error/50 w-full whitespace-nowrap">
@@ -3376,12 +3383,31 @@ function TaskForm({
             )}
           </div>
         )}
-        <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
-          <button type="button" onClick={onCancel} className="flex-1 sm:w-28 h-[42px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
+        <div className="flex gap-2 w-full sm:w-auto sm:ml-auto items-center">
+          {initialData?.id && (
+            <button
+              type="button"
+              onClick={() => setIsDuplicateMode(!isDuplicateMode)}
+              className={`h-[42px] px-3 sm:px-4 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                isDuplicateMode
+                  ? "bg-amber-500/10 text-amber-600 border-2 border-amber-500 shadow-md ring-2 ring-amber-500/30 scale-[1.02]"
+                  : "border border-border text-on-surface hover:bg-surface-variant"
+              }`}
+            >
+              <Copy className={`w-3.5 h-3.5 ${isDuplicateMode ? "text-amber-600" : "text-on-surface-variant"}`} />
+              <span>{isDuplicateMode ? "복제 모드 활성" : "일정 복제"}</span>
+            </button>
+          )}
+          <button type="button" onClick={onCancel} className="flex-1 sm:w-24 h-[42px] rounded-xl border border-border font-bold hover:bg-surface-variant transition-colors text-xs">
             취소
           </button>
-          <button type="submit" className="flex-1 sm:w-36 h-[42px] rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-colors shadow-sm text-xs">
-            {initialData ? "저장하기" : "등록하기"}
+          <button
+            type="submit"
+            className={`flex-1 sm:w-32 h-[42px] rounded-xl font-bold transition-colors shadow-sm text-xs text-on-primary ${
+              isDuplicateMode ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:opacity-90"
+            }`}
+          >
+            {isDuplicateMode ? "복제하여 저장" : initialData?.id ? "저장하기" : "등록하기"}
           </button>
         </div>
       </div>
