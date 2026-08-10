@@ -64,6 +64,10 @@ npm run start
 
 ## 📜 변경 및 업데이트 이력 (Changelog)
 
+### v1.5.3 (2026-08-10) - 색상 팔레트 순서 최적화 & 모달 좌우 여백 균형 재조정
+- **UI/UX**: 18종 색상 팔레트를 Red $\rightarrow$ Rose $\rightarrow$ Pink $\rightarrow$ Orange $\rightarrow$ Amber $\rightarrow$ Lime $\rightarrow$ Emerald $\rightarrow$ Teal $\rightarrow$ Cyan $\rightarrow$ Sky Blue $\rightarrow$ Blue $\rightarrow$ Indigo $\rightarrow$ Purple $\rightarrow$ Deep Violet $\rightarrow$ Slate 모노톤으로 재정렬하여 빨강/핑크 중복 착시 제거
+- **UI/UX**: 모달 그리드를 7:5 비율(`col-span-7` / `col-span-5`)로 조정하고 색상 지정 영역을 우측 정렬하여 불필요한 좌우/하단 여백 불균형 해소
+
 ### v1.5.2 (2026-08-10) - 일정 등록/수정 모달 레이아웃 재배치 및 드롭다운 비활성화 연동
 - **UI/UX**: 일정 모달 옵션 영역을 2열 구조로 재배치 (좌측: [유형], [반복 주기설정], 우측: [색상 지정])
 - **UI/UX**: [반복 주기설정] 영역에 주기 드롭다운과 횟수 드롭다운을 50:50 분할 배치

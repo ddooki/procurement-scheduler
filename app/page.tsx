@@ -3059,19 +3059,19 @@ function TaskColumn({
 
 const TASK_COLORS = [
   "#ef4444", // 1. Red
-  "#f97316", // 2. Orange
-  "#f59e0b", // 3. Amber
-  "#84cc16", // 4. Lime
-  "#10b981", // 5. Emerald
-  "#14b8a6", // 6. Teal
-  "#06b6d4", // 7. Cyan
-  "#0284c7", // 8. Sky Blue
-  "#3b82f6", // 9. Blue
-  "#6366f1", // 10. Indigo
-  "#8b5cf6", // 11. Purple
-  "#d946ef", // 12. Fuchsia
-  "#ec4899", // 13. Pink
-  "#f43f5e", // 14. Rose
+  "#f43f5e", // 2. Rose
+  "#ec4899", // 3. Pink
+  "#f97316", // 4. Orange
+  "#f59e0b", // 5. Amber
+  "#84cc16", // 6. Lime
+  "#10b981", // 7. Emerald
+  "#14b8a6", // 8. Teal
+  "#06b6d4", // 9. Cyan
+  "#0284c7", // 10. Sky Blue
+  "#3b82f6", // 11. Blue
+  "#6366f1", // 12. Indigo
+  "#8b5cf6", // 13. Purple
+  "#581c87", // 14. Deep Violet / Dark Purple
   "#94a3b8", // 15. Slate Light
   "#64748b", // 16. Slate Medium
   "#475569", // 17. Slate Dark
@@ -3262,15 +3262,15 @@ function TaskForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-        {/* Left column: Type & Recurrence */}
-        <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+        {/* Left column: Type & Recurrence (7 cols) */}
+        <div className="sm:col-span-7 flex flex-col gap-3">
           <div>
             <label className="block text-xs font-bold mb-1">유형</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as TaskType)}
-              className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm min-h-[48px]"
+              className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm h-[44px]"
             >
               <option value="GENERAL">일반</option>
               <option value="MEETING">미팅</option>
@@ -3288,7 +3288,7 @@ function TaskForm({
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-                className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs sm:text-sm min-h-[48px]"
+                className="w-full px-3 py-2 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs sm:text-sm h-[44px]"
               >
                 <option value="NONE">반복 없음</option>
                 <option value="WEEKLY">매주 반복</option>
@@ -3301,7 +3301,7 @@ function TaskForm({
                 value={recurrenceCount}
                 onChange={(e) => setRecurrenceCount(Number(e.target.value))}
                 disabled={recurrence === "NONE"}
-                className={`w-full px-2 py-2 rounded-xl border border-border text-xs sm:text-sm font-bold min-h-[48px] focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                className={`w-full px-2 py-2 rounded-xl border border-border text-xs sm:text-sm font-bold h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                   recurrence === "NONE"
                     ? "bg-surface-variant/40 text-on-surface-variant/40 border-border/50 cursor-not-allowed"
                     : "bg-surface text-on-surface"
@@ -3317,23 +3317,25 @@ function TaskForm({
           </div>
         </div>
 
-        {/* Right column: Color selection */}
-        <div>
-          <label className="block text-xs font-bold mb-1">색상 지정</label>
-          <div className="grid grid-cols-6 gap-1.5 py-1.5 max-w-[280px]">
-            {TASK_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
-                  color === c ? "scale-110 ring-2 ring-on-surface shadow-md" : "hover:scale-105 opacity-90"
-                }`}
-                style={{ backgroundColor: c }}
-              >
-                {color === c && <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />}
-              </button>
-            ))}
+        {/* Right column: Color selection (5 cols) */}
+        <div className="sm:col-span-5 flex flex-col sm:items-end">
+          <div className="w-full sm:max-w-[280px]">
+            <label className="block text-xs font-bold mb-1">색상 지정</label>
+            <div className="grid grid-cols-6 gap-2 py-1 items-center justify-items-center">
+              {TASK_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-transform ${
+                    color === c ? "scale-110 ring-2 ring-on-surface shadow-md" : "hover:scale-105 opacity-90"
+                  }`}
+                  style={{ backgroundColor: c }}
+                >
+                  {color === c && <Check className="w-4 h-4 text-white drop-shadow-md" />}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
