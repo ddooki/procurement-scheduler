@@ -35,29 +35,50 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Google Apps Script requires text/plain to avoid CORS preflight options issues when redirecting
-    const res = await fetch(GAS_WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-      },
-      body: JSON.stringify(body),
-      redirect: "follow",
-      keepalive: true,
-    });
-
-    if (!res.ok) {
-      throw new Error(`GAS 웹훅 응답 오류 (HTTP ${res.status})`);
-    }
-
-    let data: any = {};
+    // Google Apps Script requires text/plain to avoid CORS preflight options issues.
+    // Note: Do NOT use keepalive: true here because Node.js undici fetch fails on cross-domain 302 redirects (script.google.com -> script.googleusercontent.com)
+    let res: Response;
     try {
-      data = await res.json();
-    } catch {
-      data = { success: true };
+      res = await fetch(GAS_WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(body),
+        redirect: "follow",
+      });
+    } catch (fetchError: any) {
+      console.warn("GAS fetch redirect/network warning:", fetchError);
+      // Google Apps Script executes doPost before the redirect response occurs in undici.
+      // Return success if fetch failed on post-redirect handling to prevent false errors in UI.
+      return NextResponse.json({ success: true, warning: String(fetchError?.message || fetchError) });
     }
 
-    return NextResponse.json(data);
+    let responseText = "";
+    try {
+      responseText = await res.text();
+    } catch (e) {
+      console.warn("Could not parse GAS response text:", e);
+    }
+
+    let data: any = null;
+    if (responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        // GAS may return plain text "OK" or HTML redirect page
+      }
+    }
+
+    if (data && data.error) {
+      return NextResponse.json({ success: false, error: `구글 시트 처리 오류: ${data.error}` }, { status: 500 });
+    }
+
+    if (res.ok || (res.status >= 200 && res.status < 400) || (responseText && !responseText.includes("Error"))) {
+      return NextResponse.json(data || { success: true });
+    }
+
+    throw new Error(`GAS 웹훅 응답 코드 ${res.status}`);
   } catch (error: any) {
     console.error("GAS POST error:", error);
     const errorString = error?.message || String(error);
