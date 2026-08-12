@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(body),
       redirect: "follow",
+      keepalive: true,
     });
 
     if (!res.ok) {

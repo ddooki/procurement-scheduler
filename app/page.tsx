@@ -371,23 +371,27 @@ export default function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Save Status Toast States
+  // Save Status Toast & Progress Bar States
   const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
-  const [saveElapsedSeconds, setSaveElapsedSeconds] = useState<number>(0);
+  const [saveProgress, setSaveProgress] = useState<number>(0);
   const saveTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveStartTimeRef = useRef<number>(0);
+  const isSavingServerRef = useRef<boolean>(false);
+  const pendingSavePayloadRef = useRef<{ tasks: Task[]; notes: Note[] } | null>(null);
 
   const startSaveTimer = () => {
     if (saveTimerIntervalRef.current) {
       clearInterval(saveTimerIntervalRef.current);
     }
     setSaveStatus("SAVING");
-    setSaveElapsedSeconds(0);
+    setSaveProgress(5);
     saveStartTimeRef.current = Date.now();
 
     saveTimerIntervalRef.current = setInterval(() => {
-      const elapsed = (Date.now() - saveStartTimeRef.current) / 1000;
-      setSaveElapsedSeconds(Number(elapsed.toFixed(1)));
+      const elapsedSec = (Date.now() - saveStartTimeRef.current) / 1000;
+      // Smooth progress curve towards 92%
+      const calculatedProgress = Math.min(92, Math.round(92 * (1 - Math.exp(-elapsedSec / 2.8))));
+      setSaveProgress(calculatedProgress);
     }, 100);
   };
 
@@ -396,13 +400,21 @@ export default function App() {
       clearInterval(saveTimerIntervalRef.current);
       saveTimerIntervalRef.current = null;
     }
-    const finalElapsed = (Date.now() - saveStartTimeRef.current) / 1000;
-    setSaveElapsedSeconds(Number(finalElapsed.toFixed(1)));
-    setSaveStatus(success ? "SUCCESS" : "ERROR");
 
-    setTimeout(() => {
-      setSaveStatus("IDLE");
-    }, 2500);
+    if (success) {
+      setSaveProgress(100);
+      setSaveStatus("SUCCESS");
+      setTimeout(() => {
+        setSaveStatus("IDLE");
+        setSaveProgress(0);
+      }, 2000);
+    } else {
+      setSaveStatus("ERROR");
+      setTimeout(() => {
+        setSaveStatus("IDLE");
+        setSaveProgress(0);
+      }, 2800);
+    }
   };
 
   // Deletion Modal States
@@ -637,7 +649,52 @@ export default function App() {
     });
   };
 
-  // Save changes for tasks and notes (Optimistic UI & Background Sync)
+  const cleanTasksPayload = (tasksList: Task[]) => {
+    return tasksList.map((t) => {
+      const cleanedObj: any = {};
+      for (const k in t) {
+        const val = (t as any)[k];
+        if (val !== undefined && val !== null && val !== "") {
+          cleanedObj[k] = val;
+        }
+      }
+      return cleanedObj;
+    });
+  };
+
+  const executeServerSave = async (tasksToSave: Task[], notesToSave: Note[]) => {
+    if (isSavingServerRef.current) {
+      pendingSavePayloadRef.current = { tasks: tasksToSave, notes: notesToSave };
+      return;
+    }
+
+    isSavingServerRef.current = true;
+    startSaveTimer();
+
+    try {
+      const cleanedTasks = cleanTasksPayload(tasksToSave);
+      const success = await saveTasksToServer(cleanedTasks, notesToSave);
+
+      if (success) {
+        setDbStatus("GAS");
+        finishSaveTimer(true);
+      } else {
+        finishSaveTimer(false);
+      }
+    } catch (e) {
+      console.error("Failed to sync with Google Spreadsheet:", e);
+      finishSaveTimer(false);
+    } finally {
+      isSavingServerRef.current = false;
+      if (pendingSavePayloadRef.current) {
+        const nextPayload = pendingSavePayloadRef.current;
+        pendingSavePayloadRef.current = null;
+        executeServerSave(nextPayload.tasks, nextPayload.notes);
+      }
+    }
+  };
+
+  // Save changes for tasks and notes (Optimistic UI & Single Concurrency Queue Sync)
   const saveTasksState = async (newTasks: Task[], newNotes: Note[] = notes) => {
     setTasks(newTasks);
     setNotes(newNotes);
@@ -652,21 +709,8 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(newNotes));
 
-    // Background sync to Google Spreadsheet
-    startSaveTimer();
-    saveTasksToServer(newTasks, newNotes)
-      .then((success) => {
-        if (success) {
-          setDbStatus("GAS");
-          finishSaveTimer(true);
-        } else {
-          finishSaveTimer(false);
-        }
-      })
-      .catch((e) => {
-        console.error("Failed to sync with Google Spreadsheet:", e);
-        finishSaveTimer(false);
-      });
+    // Execute server save with queueing & clean payload
+    executeServerSave(newTasks, newNotes);
   };
 
   const openNewTaskModal = (initialDate?: Date) => {
@@ -2897,7 +2941,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Mini Saving Toast Popup at bottom right */}
+        {/* Progress Bar Saving Toast Popup at bottom right */}
         <AnimatePresence>
           {saveStatus !== "IDLE" && (
             <motion.div
@@ -2905,52 +2949,81 @@ export default function App() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
               transition={{ duration: 0.2 }}
-              className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-2xl bg-surface border border-border shadow-2xl backdrop-blur-md"
+              className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2.5 px-4 py-3.5 rounded-2xl bg-surface border border-border shadow-2xl backdrop-blur-md min-w-[280px]"
             >
               {saveStatus === "SAVING" && (
                 <>
-                  <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary">
-                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary">
+                        <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
+                      </div>
+                      <span className="text-xs font-bold text-on-surface">
+                        💾 구글 시트 동기화 중...
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-primary">
+                      {saveProgress}%
+                    </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                      💾 구글 시트 동기화 중...
-                    </span>
-                    <span className="text-[11px] font-medium text-on-surface-variant">
-                      경과 시간: <span className="font-mono text-primary font-bold">{saveElapsedSeconds.toFixed(1)}초</span>
-                    </span>
+
+                  {/* Dynamic Fill Progress Bar */}
+                  <div className="w-full h-2 rounded-full bg-surface-variant/60 overflow-hidden relative">
+                    <motion.div
+                      className="h-full rounded-full bg-primary"
+                      initial={{ width: "0%" }}
+                      animate={{ width: `${saveProgress}%` }}
+                      transition={{ ease: "easeOut", duration: 0.2 }}
+                    />
                   </div>
                 </>
               )}
 
               {saveStatus === "SUCCESS" && (
                 <>
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Check className="w-4 h-4" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        동기화 완료!
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      100%
+                    </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      동기화 완료!
-                    </span>
-                    <span className="text-[11px] font-medium text-on-surface-variant">
-                      소요 시간: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{saveElapsedSeconds.toFixed(1)}초</span>
-                    </span>
+
+                  <div className="w-full h-2 rounded-full bg-emerald-500/20 overflow-hidden relative">
+                    <motion.div
+                      className="h-full rounded-full bg-emerald-500"
+                      initial={{ width: "90%" }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 0.2 }}
+                    />
                   </div>
                 </>
               )}
 
               {saveStatus === "ERROR" && (
                 <>
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                        동기화 실패
+                      </span>
+                    </div>
                     <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                      동기화 실패
+                      오류
                     </span>
-                    <span className="text-[11px] font-medium text-on-surface-variant">
-                      네트워크 연결 또는 구글 시트 상태를 확인해 주세요.
-                    </span>
+                  </div>
+
+                  <div className="w-full h-2 rounded-full bg-rose-500/20 overflow-hidden relative">
+                    <div className="h-full rounded-full bg-rose-500 w-full" />
                   </div>
                 </>
               )}
