@@ -140,6 +140,7 @@ interface Task {
   startDate?: string;
   endDate?: string;
   chainName?: string;
+  isSingleEdited?: boolean;
 }
 
 interface Note {
@@ -882,18 +883,19 @@ export default function App() {
       if (newRecurrence === "NONE") {
         // If recurrence removed, delete related auto-generated child tasks
         updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
-        updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
+        updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? { ...updatedTask, isSingleEdited: false } : t));
       } else if (isBatchGroupEdit) {
         // Batch Edit: update or regenerate entire group
+        const baseBatchTask = { ...updatedTask, isSingleEdited: false };
         if ((oldRecurrence as string) !== (newRecurrence as string) || customRecurrenceCount) {
           updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
-          updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? updatedTask : t));
+          updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? baseBatchTask : t));
 
           const recurrentTasks: Task[] = [];
           let recurrenceCount = customRecurrenceCount || 5;
-          let lastDate = parseISO(updatedTask.deadline);
-          let originalStart = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
-          let originalEnd = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
+          let lastDate = parseISO(baseBatchTask.deadline);
+          let originalStart = baseBatchTask.startDate ? parseISO(baseBatchTask.startDate) : null;
+          let originalEnd = baseBatchTask.endDate ? parseISO(baseBatchTask.endDate) : null;
 
           for (let i = 1; i <= recurrenceCount; i++) {
             const getNextDate = (d: Date) => {
@@ -909,7 +911,7 @@ export default function App() {
             const nextEnd = originalEnd ? getNextDate(originalEnd) : undefined;
 
             recurrentTasks.push({
-              ...updatedTask,
+              ...baseBatchTask,
               id: crypto.randomUUID(),
               parentId: rootId,
               deadline: nextDate.toISOString(),
@@ -918,13 +920,14 @@ export default function App() {
               status: "TODO",
               createdAt: new Date().toISOString(),
               completedAt: undefined,
+              isSingleEdited: false,
             });
           }
           updatedTasks = [...updatedTasks, ...recurrentTasks];
         } else {
           // Sync group-wide settings (title, type, color, description, dates) to all siblings
-          const startNew = updatedTask.startDate ? parseISO(updatedTask.startDate) : null;
-          const endNew = updatedTask.endDate ? parseISO(updatedTask.endDate) : null;
+          const startNew = baseBatchTask.startDate ? parseISO(baseBatchTask.startDate) : null;
+          const endNew = baseBatchTask.endDate ? parseISO(baseBatchTask.endDate) : null;
 
           updatedTasks = updatedTasks.map((t) => {
             if (t.id === rootId || t.parentId === rootId) {
@@ -943,13 +946,14 @@ export default function App() {
 
               return {
                 ...t,
-                title: updatedTask.title,
-                description: updatedTask.description,
-                type: updatedTask.type,
-                color: updatedTask.color,
-                recurrence: updatedTask.recurrence,
+                title: baseBatchTask.title,
+                description: baseBatchTask.description,
+                type: baseBatchTask.type,
+                color: baseBatchTask.color,
+                recurrence: baseBatchTask.recurrence,
                 startDate: tStart ? tStart.toISOString() : t.startDate,
                 endDate: tEnd ? tEnd.toISOString() : t.endDate,
+                isSingleEdited: false,
               };
             }
             return t;
@@ -957,7 +961,8 @@ export default function App() {
         }
       } else {
         // Individual Edit: update strictly the targeted single instance
-        updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
+        const singleUpdatedTask = { ...updatedTask, isSingleEdited: true };
+        updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? singleUpdatedTask : t));
         setIsSingleEditNoticeOpen(true);
       }
     } else {
@@ -4674,6 +4679,49 @@ function FullCalendar({
   );
 }
 
+function getGroupRepresentativeTask(groupTasks: Task[]): Task {
+  if (groupTasks.length === 0) return groupTasks[0];
+
+  // Prefer tasks that have NOT been individually edited
+  const unedited = groupTasks.filter((t) => !t.isSingleEdited);
+  const candidates = unedited.length > 0 ? unedited : groupTasks;
+
+  const getPatternKey = (t: Task) => {
+    const start = t.startDate ? parseISO(t.startDate) : parseISO(t.deadline);
+    const end = t.endDate ? parseISO(t.endDate) : start;
+    switch (t.recurrence) {
+      case "WEEKLY":
+        return `WEEKLY_${getDay(start)}_${getDay(end)}`;
+      case "MONTHLY":
+        return `MONTHLY_${start.getDate()}_${end.getDate()}`;
+      case "QUARTERLY":
+      case "SEMI_ANNUALLY":
+      case "ANNUALLY":
+        return `${t.recurrence}_${format(start, "MM-dd")}_${format(end, "MM-dd")}`;
+      default:
+        return `DEFAULT_${format(start, "yyyy-MM-dd")}_${format(end, "yyyy-MM-dd")}`;
+    }
+  };
+
+  const patternCounts = new Map<string, number>();
+  candidates.forEach((t) => {
+    const key = getPatternKey(t);
+    patternCounts.set(key, (patternCounts.get(key) || 0) + 1);
+  });
+
+  let maxKey = "";
+  let maxCount = -1;
+  patternCounts.forEach((count, key) => {
+    if (count > maxCount) {
+      maxCount = count;
+      maxKey = key;
+    }
+  });
+
+  const bestMatch = candidates.find((t) => getPatternKey(t) === maxKey);
+  return bestMatch || candidates[0];
+}
+
 function PeriodicTable({
   tasks,
   allTasks,
@@ -4693,24 +4741,20 @@ function PeriodicTable({
     );
   }
 
-  // Deduplicate tasks by root parent ID (or task ID if no parentId) to show only 1 row per recurring task configuration
-  const groupedMap = new Map<string, Task>();
+  // Group tasks by root parent ID (or task ID if no parentId) to select representative schedule pattern
+  const groupedTasksMap = new Map<string, Task[]>();
   tasks.forEach((task) => {
     const rootId = task.parentId || task.id;
-    if (!groupedMap.has(rootId)) {
-      groupedMap.set(rootId, task);
-    } else {
-      // Prioritize the root/parent task itself as the representative setting of the group
-      const existing = groupedMap.get(rootId)!;
-      if (task.id === rootId) {
-        groupedMap.set(rootId, task);
-      } else if (existing.id !== rootId && parseISO(task.deadline) < parseISO(existing.deadline)) {
-        groupedMap.set(rootId, task);
-      }
+    if (!groupedTasksMap.has(rootId)) {
+      groupedTasksMap.set(rootId, []);
     }
+    groupedTasksMap.get(rootId)!.push(task);
   });
 
-  const uniqueTasks = Array.from(groupedMap.values());
+  const uniqueTasks: Task[] = [];
+  groupedTasksMap.forEach((groupTasks) => {
+    uniqueTasks.push(getGroupRepresentativeTask(groupTasks));
+  });
 
   const formatSchedule = (task: Task) => {
     const start = task.startDate ? parseISO(task.startDate) : parseISO(task.deadline);
