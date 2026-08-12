@@ -4709,11 +4709,42 @@ function PeriodicGroupDetailModal({
   onClose: () => void;
 }) {
   const { rootId, sampleTask } = groupInfo;
+  const [showPastTasks, setShowPastTasks] = useState(false);
 
   // Filter all instances belonging to this root group
   const groupTasks = tasks
     .filter((t) => (t.parentId || t.id) === rootId)
     .sort((a, b) => parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime());
+
+  // Separate past tasks (where end date/deadline is before today) vs upcoming/current tasks
+  const todayStart = startOfDay(new Date());
+  const pastTasks: Task[] = [];
+  const upcomingTasks: Task[] = [];
+
+  groupTasks.forEach((t) => {
+    const end = startOfDay(safeDate(t.endDate || t.deadline));
+    if (isBefore(end, todayStart)) {
+      pastTasks.push(t);
+    } else {
+      upcomingTasks.push(t);
+    }
+  });
+
+  // Date range formatting helper for individual instance
+  const formatInstanceDateRange = (task: Task) => {
+    const start = task.startDate ? parseISO(task.startDate) : parseISO(task.deadline);
+    const end = task.endDate ? parseISO(task.endDate) : parseISO(task.deadline);
+
+    if (isSameDay(start, end)) {
+      return format(start, "yyyy년 MM월 dd일 (EEE)", { locale: ko });
+    }
+
+    if (start.getFullYear() !== end.getFullYear()) {
+      return `${format(start, "yyyy년 MM월 dd일 (EEE)", { locale: ko })} ~ ${format(end, "yyyy년 MM월 dd일 (EEE)", { locale: ko })}`;
+    }
+
+    return `${format(start, "yyyy년 MM월 dd일 (EEE)", { locale: ko })} ~ ${format(end, "MM월 dd일 (EEE)", { locale: ko })}`;
+  };
 
   // Determine date range summary based on recurrence type
   const formatRangeSummary = () => {
@@ -4733,6 +4764,54 @@ function PeriodicGroupDetailModal({
       default:
         return `반복 기간: ${format(firstDate, "yyyy년 MM월 dd일", { locale: ko })} ~ ${format(lastDate, "yyyy년 MM월 dd일", { locale: ko })}`;
     }
+  };
+
+  const renderTaskRow = (t: Task) => {
+    const dateRangeStr = formatInstanceDateRange(t);
+    return (
+      <div
+        key={t.id}
+        className="p-3.5 rounded-xl border border-border bg-surface hover:bg-surface-variant/20 transition-all flex items-center justify-between gap-3 shadow-sm"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-on-surface">
+              {dateRangeStr}
+            </span>
+            {t.status === "DONE" && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-container text-primary">
+                완료
+              </span>
+            )}
+            {t.status === "IN_PROGRESS" && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                진행중
+              </span>
+            )}
+          </div>
+          {t.description && (
+            <p className="text-xs text-on-surface-variant/80 mt-1 truncate">{t.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={() => {
+              onClose();
+              onEditTask(t);
+            }}
+            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-surface hover:bg-surface-variant text-on-surface transition-colors"
+          >
+            개별 수정
+          </button>
+          <button
+            onClick={() => onDeleteTask(t.id)}
+            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-error/40 text-error hover:bg-error-container/20 transition-colors"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -4784,48 +4863,56 @@ function PeriodicGroupDetailModal({
           {groupTasks.length === 0 ? (
             <p className="text-center py-8 text-xs text-on-surface-variant">남아있는 일정이 없습니다.</p>
           ) : (
-            groupTasks.map((t) => {
-              const d = parseISO(t.deadline);
-              return (
-                <div
-                  key={t.id}
-                  className="p-3.5 rounded-xl border border-border bg-surface hover:bg-surface-variant/20 transition-all flex items-center justify-between gap-3 shadow-sm"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-on-surface">
-                        {format(d, "yyyy년 MM월 dd일 (EEE)", { locale: ko })}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        t.status === "DONE" ? "bg-primary-container text-primary" : "bg-surface-variant text-on-surface-variant"
-                      }`}>
-                        {t.status === "DONE" ? "완료" : t.status === "IN_PROGRESS" ? "진행중" : "예정(대기)"}
-                      </span>
-                    </div>
-                    {t.description && (
-                      <p className="text-xs text-on-surface-variant/80 mt-1 truncate">{t.description}</p>
+            <>
+              {/* Past Tasks Toggle Section */}
+              {pastTasks.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowPastTasks(!showPastTasks)}
+                    className="w-full py-2.5 px-4 rounded-xl border border-border/80 bg-surface-variant/30 hover:bg-surface-variant/60 text-xs font-bold text-on-surface-variant flex items-center justify-between transition-colors shadow-sm"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <History className="w-4 h-4 text-primary" />
+                      <span>지난 일정 {pastTasks.length}개 {showPastTasks ? "접기" : "보기"}</span>
+                    </span>
+                    <span className="text-[11px] text-on-surface-variant/70 flex items-center gap-1 font-medium">
+                      {showPastTasks ? (
+                        <>숨기기 <ChevronDown className="w-4 h-4" /></>
+                      ) : (
+                        <>펼치기 <ChevronRight className="w-4 h-4" /></>
+                      )}
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {showPastTasks && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-2.5 overflow-hidden pt-1 pl-2 border-l-2 border-primary/30"
+                      >
+                        <div className="text-[11px] font-bold text-on-surface-variant/60 px-1 mb-1">지난 진행 이력</div>
+                        {pastTasks.map((t) => renderTaskRow(t))}
+                      </motion.div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        onClose();
-                        onEditTask(t);
-                      }}
-                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-surface hover:bg-surface-variant text-on-surface transition-colors"
-                    >
-                      개별 수정
-                    </button>
-                    <button
-                      onClick={() => onDeleteTask(t.id)}
-                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-error/40 text-error hover:bg-error-container/20 transition-colors"
-                    >
-                      삭제
-                    </button>
-                  </div>
+                  </AnimatePresence>
                 </div>
-              );
-            })
+              )}
+
+              {/* Current & Upcoming Tasks Section */}
+              <div className="space-y-2.5">
+                {upcomingTasks.length > 0 ? (
+                  upcomingTasks.map((t) => renderTaskRow(t))
+                ) : (
+                  <p className="text-center py-6 text-xs text-on-surface-variant bg-surface-variant/10 rounded-xl border border-dashed border-border">
+                    현재 대기/예정 중인 항목이 없습니다. (지난 이력 {pastTasks.length}건 존재)
+                  </p>
+                )}
+              </div>
+            </>
           )}
         </div>
 
