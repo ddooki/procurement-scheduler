@@ -722,7 +722,9 @@ export default function App() {
       if (pendingSavePayloadRef.current) {
         const nextPayload = pendingSavePayloadRef.current;
         pendingSavePayloadRef.current = null;
-        executeServerSave(nextPayload.tasks, nextPayload.notes);
+        setTimeout(() => {
+          executeServerSave(nextPayload.tasks, nextPayload.notes);
+        }, 400);
       }
     }
   };
@@ -2988,14 +2990,19 @@ export default function App() {
                 <>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary">
+                      <div className="relative flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary shrink-0">
                         <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
                       </div>
-                      <span className="text-xs font-bold text-on-surface">
-                        💾 구글 시트 동기화 중...
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-on-surface">
+                          💾 구글 시트 동기화 중...
+                        </span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                          ✓ 화면 반영 완료 (구글 시트 백그라운드 저장중)
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-xs font-mono font-bold text-primary">
+                    <span className="text-xs font-mono font-bold text-primary shrink-0 self-start mt-0.5">
                       {saveProgress}%
                     </span>
                   </div>

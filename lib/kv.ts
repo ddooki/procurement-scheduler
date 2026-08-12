@@ -30,13 +30,18 @@ export async function fetchTasksFromServer(): Promise<{ tasks: any[]; notes: any
 
 export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promise<{ success: boolean; error?: string }> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout safeguard
+
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ tasks, notes }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       let errorMsg = `서버 응답 오류 (HTTP ${res.status})`;
@@ -54,9 +59,12 @@ export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promis
     return { success: true };
   } catch (error: any) {
     console.error("Error saving data to Google Spreadsheet (GAS):", error);
+    const isTimeout = error?.name === "AbortError";
     return {
       success: false,
-      error: error?.message ? `네트워크/통신 예외: ${error.message}` : "서버 네트워크 연결 실패",
+      error: isTimeout
+        ? "구글 시트 응답 시간(15초) 초과. 백그라운드 서버 처리가 지연되고 있습니다."
+        : (error?.message ? `네트워크/통신 예외: ${error.message}` : "서버 네트워크 연결 실패"),
     };
   }
 }
