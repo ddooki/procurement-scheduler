@@ -402,6 +402,7 @@ export default function App() {
   // Save Status Toast & Progress Bar States
   const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
   const [saveProgress, setSaveProgress] = useState<number>(0);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string>("");
   const saveTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveStartTimeRef = useRef<number>(0);
   const isSavingServerRef = useRef<boolean>(false);
@@ -413,6 +414,7 @@ export default function App() {
     }
     setSaveStatus("SAVING");
     setSaveProgress(5);
+    setSaveErrorMessage("");
     saveStartTimeRef.current = Date.now();
 
     saveTimerIntervalRef.current = setInterval(() => {
@@ -423,7 +425,7 @@ export default function App() {
     }, 100);
   };
 
-  const finishSaveTimer = (success: boolean) => {
+  const finishSaveTimer = (success: boolean, errorMsg?: string) => {
     if (saveTimerIntervalRef.current) {
       clearInterval(saveTimerIntervalRef.current);
       saveTimerIntervalRef.current = null;
@@ -432,16 +434,19 @@ export default function App() {
     if (success) {
       setSaveProgress(100);
       setSaveStatus("SUCCESS");
+      setSaveErrorMessage("");
       setTimeout(() => {
         setSaveStatus("IDLE");
         setSaveProgress(0);
       }, 2000);
     } else {
       setSaveStatus("ERROR");
+      setSaveErrorMessage(errorMsg || "원인을 알 수 없는 동기화 오류가 발생했습니다.");
       setTimeout(() => {
         setSaveStatus("IDLE");
         setSaveProgress(0);
-      }, 2800);
+        setSaveErrorMessage("");
+      }, 8000);
     }
   };
 
@@ -701,17 +706,17 @@ export default function App() {
 
     try {
       const cleanedTasks = cleanTasksPayload(tasksToSave);
-      const success = await saveTasksToServer(cleanedTasks, notesToSave);
+      const res = await saveTasksToServer(cleanedTasks, notesToSave);
 
-      if (success) {
+      if (res.success) {
         setDbStatus("GAS");
         finishSaveTimer(true);
       } else {
-        finishSaveTimer(false);
+        finishSaveTimer(false, res.error || "구글 시트 동기화 실패");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to sync with Google Spreadsheet:", e);
-      finishSaveTimer(false);
+      finishSaveTimer(false, e?.message || "서버 통신 중 예외가 발생했습니다.");
     } finally {
       isSavingServerRef.current = false;
       if (pendingSavePayloadRef.current) {
@@ -3036,21 +3041,32 @@ export default function App() {
 
               {saveStatus === "ERROR" && (
                 <>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 shrink-0">
                         <AlertTriangle className="w-3.5 h-3.5" />
                       </div>
                       <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
                         동기화 실패
                       </span>
                     </div>
-                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
-                      오류
-                    </span>
+                    <button
+                      onClick={() => setSaveStatus("IDLE")}
+                      className="p-1 -mr-1 -mt-1 text-on-surface-variant/60 hover:text-on-surface hover:bg-surface-variant/40 rounded-md transition-colors"
+                      title="닫기"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
-                  <div className="w-full h-2 rounded-full bg-rose-500/20 overflow-hidden relative">
+                  {saveErrorMessage && (
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300 font-medium break-all max-h-[120px] overflow-y-auto">
+                      <span className="font-bold text-rose-800 dark:text-rose-200 block mb-0.5">실패 사유:</span>
+                      {saveErrorMessage}
+                    </div>
+                  )}
+
+                  <div className="w-full h-1.5 rounded-full bg-rose-500/20 overflow-hidden relative">
                     <div className="h-full rounded-full bg-rose-500 w-full" />
                   </div>
                 </>

@@ -28,7 +28,7 @@ export async function fetchTasksFromServer(): Promise<{ tasks: any[]; notes: any
   }
 }
 
-export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promise<boolean> {
+export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch("/api/tasks", {
       method: "POST",
@@ -37,10 +37,27 @@ export async function saveTasksToServer(tasks: any[], notes: any[] = []): Promis
       },
       body: JSON.stringify({ tasks, notes }),
     });
-    return res.ok;
-  } catch (error) {
+
+    if (!res.ok) {
+      let errorMsg = `서버 응답 오류 (HTTP ${res.status})`;
+      try {
+        const data = await res.json();
+        if (data.error) errorMsg = data.error;
+      } catch {}
+      return { success: false, error: errorMsg };
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+    return { success: true };
+  } catch (error: any) {
     console.error("Error saving data to Google Spreadsheet (GAS):", error);
-    return false;
+    return {
+      success: false,
+      error: error?.message ? `네트워크/통신 예외: ${error.message}` : "서버 네트워크 연결 실패",
+    };
   }
 }
 

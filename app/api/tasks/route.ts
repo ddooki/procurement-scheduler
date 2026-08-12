@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!GAS_WEBHOOK_URL) {
     console.warn("GAS_WEBHOOK_URL is not configured.");
-    return NextResponse.json({ success: false, error: "Database not configured" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "구글 시트 연동 URL(GAS_WEBHOOK_URL)이 환경 변수에 설정되어 있지 않습니다." }, { status: 500 });
   }
 
   try {
@@ -47,10 +47,10 @@ export async function POST(request: Request) {
     });
 
     if (!res.ok) {
-      throw new Error(`GAS returned status ${res.status}`);
+      throw new Error(`GAS 웹훅 응답 오류 (HTTP ${res.status})`);
     }
 
-    let data = {};
+    let data: any = {};
     try {
       data = await res.json();
     } catch {
@@ -58,9 +58,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("GAS POST error:", error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    const errorString = error?.message || String(error);
+    return NextResponse.json({ success: false, error: `구글 시트 동기화 실패: ${errorString}` }, { status: 500 });
   }
 }
 
