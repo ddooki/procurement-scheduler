@@ -87,22 +87,33 @@ const safeFormat = (dateInput: Date | string | null | undefined, formatStr: stri
 };
 
 const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
-  return rawTasks.map((t) => {
-    const deadlineDate = safeDate(t.deadline);
-    const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
-    const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
-    const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
-    const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+  if (!Array.isArray(rawTasks)) return [];
+  return rawTasks
+    .filter((t) => t && typeof t === "object" && (t.id || t.title))
+    .map((t) => {
+      const id = String(t.id || crypto.randomUUID());
+      const title = String(t.title || "제목 없음");
+      const type = (t.type || "GENERAL") as TaskType;
+      const status = (t.status || "TODO") as TaskStatus;
+      const deadlineDate = safeDate(t.deadline);
+      const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
+      const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
+      const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
+      const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
 
-    return {
-      ...t,
-      deadline: deadlineDate.toISOString(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      completedAt,
-      createdAt,
-    };
-  });
+      return {
+        ...t,
+        id,
+        title,
+        type,
+        status,
+        deadline: deadlineDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        completedAt,
+        createdAt,
+      };
+    });
 };
 
 type TaskType = "MEETING" | "BID" | "SUBMISSION" | "GENERAL" | "HOLIDAY" | "COMPANY_HOLIDAY" | "PERSONAL_LEAVE";
@@ -156,7 +167,9 @@ const updateTaskDependencies = (
   newPrevId: string | undefined,
   newNextId: string | undefined
 ): Task[] => {
+  if (!Array.isArray(taskList)) return [];
   return taskList.map(t => {
+    if (!t) return t;
     let nextTaskId = t.nextTaskId;
     let prevTaskId = t.prevTaskId;
 
@@ -193,21 +206,26 @@ const updateTaskDependencies = (
 };
 
 const clearDeletedTaskDependencies = (taskList: Task[], deletedId: string): Task[] => {
+  if (!Array.isArray(taskList)) return [];
   return taskList.map(t => {
+    if (!t) return t;
     let nextTaskId = t.nextTaskId === deletedId ? undefined : t.nextTaskId;
     let prevTaskId = t.prevTaskId === deletedId ? undefined : t.prevTaskId;
     return { ...t, nextTaskId, prevTaskId };
   });
 };
 
-const isBusinessDay = (date: Date, tasks: Task[]): boolean => {
+const isBusinessDay = (date: Date, tasks: Task[] = []): boolean => {
+  if (!date || isNaN(date.getTime())) return false;
   const dayOfWeek = getDay(date); // 0 = Sunday, 6 = Saturday
   if (dayOfWeek === 0 || dayOfWeek === 6) return false;
 
   const targetDay = startOfDay(date);
+  if (!Array.isArray(tasks)) return true;
 
   // Check if there is any holiday / leave task scheduled on this date
-  const isHoliday = tasks.some(t => {
+  const isHoliday = tasks.some((t) => {
+    if (!t) return false;
     if (t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE") {
       return false;
     }
@@ -219,7 +237,8 @@ const isBusinessDay = (date: Date, tasks: Task[]): boolean => {
   return !isHoliday;
 };
 
-const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[]): number => {
+const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[] = []): number => {
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
   let startD = startOfDay(start);
   let endD = startOfDay(end);
 
@@ -235,8 +254,12 @@ const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[]): number
 
   let count = 0;
   let current = startD;
-  while (!isSameDay(current, endD)) {
+  let iterations = 0;
+  const maxIterations = 1000; // Loop limit guard to prevent stack freezes
+
+  while (!isSameDay(current, endD) && iterations < maxIterations) {
     current = addDays(current, 1);
+    iterations++;
     if (isBusinessDay(current, tasks)) {
       count++;
     }
@@ -246,6 +269,7 @@ const countBusinessDaysBetween = (start: Date, end: Date, tasks: Task[]): number
 };
 
 const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
+  if (!task) return "DURING";
   const today = startOfDay(new Date());
   const start = startOfDay(safeDate(task.startDate || task.deadline));
   const end = startOfDay(safeDate(task.endDate || task.deadline));
@@ -255,6 +279,7 @@ const getTaskTimePeriod = (task: Task): "BEFORE" | "DURING" | "AFTER" => {
 };
 
 const getTaskStatus = (task: Task): TaskStatus => {
+  if (!task) return "TODO";
   const period = getTaskTimePeriod(task);
   if (task.status === "DONE" || period === "AFTER") return "DONE";
   return period === "BEFORE" ? "TODO" : "IN_PROGRESS";
@@ -263,18 +288,21 @@ const getTaskStatus = (task: Task): TaskStatus => {
 // Filter tasks for the Work status board (작업현황):
 // 1. Exclude holidays / leave types (HOLIDAY, COMPANY_HOLIDAY, PERSONAL_LEAVE) from the task board.
 // 2. Group ALL tasks by title (or parentId), and for repeating/same-title tasks, ONLY show the single nearest active/upcoming item.
-const filterTasksForBoard = (taskList: Task[]): Task[] => {
+const filterTasksForBoard = (taskList: Task[] = []): Task[] => {
+  if (!Array.isArray(taskList)) return [];
+  
   // Step 1: Exclude holiday and leave items from work board
-  const workOnlyTasks = taskList.filter(
-    (t) => t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE"
-  );
+  const workOnlyTasks = taskList.filter((t) => {
+    if (!t) return false;
+    return t.type !== "HOLIDAY" && t.type !== "COMPANY_HOLIDAY" && t.type !== "PERSONAL_LEAVE";
+  });
 
   // Group tasks by normalized title or parentId to deduplicate repeating tasks
   const titleGroups: { [key: string]: Task[] } = {};
 
   workOnlyTasks.forEach((t) => {
-    // Normalize title by trimming space and lowercasing
-    const groupKey = t.parentId || t.title.trim().toLowerCase();
+    const titleStr = typeof t.title === "string" ? t.title : "";
+    const groupKey = t.parentId || titleStr.trim().toLowerCase() || "untitled";
     if (!titleGroups[groupKey]) {
       titleGroups[groupKey] = [];
     }
@@ -284,7 +312,7 @@ const filterTasksForBoard = (taskList: Task[]): Task[] => {
   const selectedBoardTasks: Task[] = [];
 
   Object.values(titleGroups).forEach((group) => {
-    // If only 1 task in group, add it directly
+    if (!group || group.length === 0) return;
     if (group.length === 1) {
       selectedBoardTasks.push(group[0]);
       return;
