@@ -371,6 +371,40 @@ export default function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Save Status Toast States
+  const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
+  const [saveElapsedSeconds, setSaveElapsedSeconds] = useState<number>(0);
+  const saveTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const saveStartTimeRef = useRef<number>(0);
+
+  const startSaveTimer = () => {
+    if (saveTimerIntervalRef.current) {
+      clearInterval(saveTimerIntervalRef.current);
+    }
+    setSaveStatus("SAVING");
+    setSaveElapsedSeconds(0);
+    saveStartTimeRef.current = Date.now();
+
+    saveTimerIntervalRef.current = setInterval(() => {
+      const elapsed = (Date.now() - saveStartTimeRef.current) / 1000;
+      setSaveElapsedSeconds(Number(elapsed.toFixed(1)));
+    }, 100);
+  };
+
+  const finishSaveTimer = (success: boolean) => {
+    if (saveTimerIntervalRef.current) {
+      clearInterval(saveTimerIntervalRef.current);
+      saveTimerIntervalRef.current = null;
+    }
+    const finalElapsed = (Date.now() - saveStartTimeRef.current) / 1000;
+    setSaveElapsedSeconds(Number(finalElapsed.toFixed(1)));
+    setSaveStatus(success ? "SUCCESS" : "ERROR");
+
+    setTimeout(() => {
+      setSaveStatus("IDLE");
+    }, 2500);
+  };
+
   // Deletion Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<"ASK" | "PASSWORD">("ASK");
@@ -609,23 +643,13 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     });
   };
 
-  // Save changes for tasks and notes
+  // Save changes for tasks and notes (Optimistic UI & Background Sync)
   const saveTasksState = async (newTasks: Task[], newNotes: Note[] = notes) => {
     setTasks(newTasks);
     setNotes(newNotes);
     setLastSaved(new Date());
 
-    // Sync to Google Spreadsheet if available
-    try {
-      await saveTasksToServer(newTasks, newNotes);
-      if (process.env.NODE_ENV === "production" || dbStatus === "GAS") {
-        setDbStatus("GAS");
-      }
-    } catch (e) {
-      console.error("Failed to sync with Google Spreadsheet:", e);
-    }
-    
-    // Always keep localStorage updated as well
+    // Always keep localStorage updated immediately
     const data = {
       tasks: newTasks,
       theme: isDarkMode ? "dark" : "light",
@@ -633,6 +657,24 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(newNotes));
+
+    // Background sync to Google Spreadsheet if configured or connected
+    if (dbStatus === "GAS" || isKVConfigured) {
+      startSaveTimer();
+      saveTasksToServer(newTasks, newNotes)
+        .then((success) => {
+          if (success) {
+            setDbStatus("GAS");
+            finishSaveTimer(true);
+          } else {
+            finishSaveTimer(false);
+          }
+        })
+        .catch((e) => {
+          console.error("Failed to sync with Google Spreadsheet:", e);
+          finishSaveTimer(false);
+        });
+    }
   };
 
   const openNewTaskModal = (initialDate?: Date) => {
@@ -2862,6 +2904,67 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Mini Saving Toast Popup at bottom right */}
+        <AnimatePresence>
+          {saveStatus !== "IDLE" && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-2xl bg-surface border border-border shadow-2xl backdrop-blur-md"
+            >
+              {saveStatus === "SAVING" && (
+                <>
+                  <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary">
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                      💾 구글 시트 동기화 중...
+                    </span>
+                    <span className="text-[11px] font-medium text-on-surface-variant">
+                      경과 시간: <span className="font-mono text-primary font-bold">{saveElapsedSeconds.toFixed(1)}초</span>
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {saveStatus === "SUCCESS" && (
+                <>
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Check className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      동기화 완료!
+                    </span>
+                    <span className="text-[11px] font-medium text-on-surface-variant">
+                      소요 시간: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{saveElapsedSeconds.toFixed(1)}초</span>
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {saveStatus === "ERROR" && (
+                <>
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      동기화 실패
+                    </span>
+                    <span className="text-[11px] font-medium text-on-surface-variant">
+                      네트워크 연결 또는 구글 시트 상태를 확인해 주세요.
+                    </span>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
 }
@@ -3148,9 +3251,11 @@ function TaskForm({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDuplicateMode, setIsDuplicateMode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync state with initialData when it changes
   useEffect(() => {
+    setIsSubmitting(false);
     setTitle(initialData?.title || "");
     setType(initialData?.type || "GENERAL");
     
@@ -3221,7 +3326,8 @@ function TaskForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (isSubmitting || !title.trim()) return;
+    setIsSubmitting(true);
 
     const sTime = isAllDay ? "00:00" : startTimeStr;
     const eTime = isAllDay ? "23:59" : endTimeStr;
@@ -3540,11 +3646,16 @@ function TaskForm({
           </button>
           <button
             type="submit"
+            disabled={isSubmitting}
             className={`flex-1 sm:w-32 h-[42px] rounded-xl font-bold transition-colors shadow-sm text-xs text-on-primary ${
-              isDuplicateMode ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:opacity-90"
+              isSubmitting
+                ? "opacity-60 cursor-not-allowed bg-primary"
+                : isDuplicateMode
+                ? "bg-amber-600 hover:bg-amber-700"
+                : "bg-primary hover:opacity-90"
             }`}
           >
-            {isDuplicateMode ? "복제하여 저장" : initialData?.id ? "저장하기" : "등록하기"}
+            {isSubmitting ? "저장 중..." : isDuplicateMode ? "복제하여 저장" : initialData?.id ? "저장하기" : "등록하기"}
           </button>
         </div>
       </div>
