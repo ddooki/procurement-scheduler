@@ -464,165 +464,159 @@ export default function App() {
     await saveTasksState(updatedTasks);
   };
 
-  // Load Tasks and Notes
+  const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
+    return rawTasks.map((t) => {
+      const deadlineDate = safeDate(t.deadline);
+      const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
+      const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
+      const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
+      const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+
+      return {
+        ...t,
+        deadline: deadlineDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        completedAt,
+        createdAt,
+      };
+    });
+  };
+
+  const processAndSanitizeTasks = (rawTasks: any[]): Task[] => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    let sanitized = sanitizeTaskDates(rawTasks).filter((t: Task) => {
+      if (t.status === "DONE") {
+        const compareDate = safeDate(t.completedAt || t.deadline);
+        return isAfter(compareDate, thirtyDaysAgo);
+      }
+      return true;
+    }).map((t: Task) => {
+      if ((!t.recurrence || t.recurrence === "NONE") && t.title.includes("월간")) {
+        return { ...t, recurrence: "MONTHLY" as RecurrenceType };
+      }
+      return t;
+    });
+
+    const today = new Date();
+    const expiredChainTaskIds = new Set<string>();
+    const startTasks = sanitized.filter(t => !t.prevTaskId && t.nextTaskId);
+
+    startTasks.forEach(startTask => {
+      const chain: Task[] = [startTask];
+      let current = startTask;
+      while (current.nextTaskId) {
+        const next = sanitized.find(t => t.id === current.nextTaskId);
+        if (next) {
+          chain.push(next);
+          current = next;
+        } else {
+          break;
+        }
+      }
+      const lastTask = chain[chain.length - 1];
+      const lastDeadline = safeDate(lastTask.endDate || lastTask.deadline);
+      if (isBefore(lastDeadline, startOfDay(today))) {
+        const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, sanitized);
+        if (businessDaysPassed > 3) {
+          chain.forEach(t => expiredChainTaskIds.add(t.id));
+        }
+      }
+    });
+
+    if (expiredChainTaskIds.size > 0) {
+      return sanitized.map(t => {
+        if (expiredChainTaskIds.has(t.id)) {
+          return {
+            ...t,
+            prevTaskId: undefined,
+            nextTaskId: undefined,
+            chainName: undefined,
+          };
+        }
+        return t;
+      });
+    }
+    return sanitized;
+  };
+
+  // Load Tasks and Notes (Instant Local Hydration + Background GAS Sync)
   useEffect(() => {
     const initialize = async () => {
-      let loadedTasks: Task[] = [];
-      let loadedNotes: Note[] = [];
+      let localTasks: Task[] = [];
+      let localNotes: Note[] = [];
       let themeMode = "light";
 
-      // Google Apps Script connection check (runs on deployment)
+      // 1. INSTANT LOCAL HYDRATION (0.01초 부팅)
       if (typeof window !== "undefined") {
-        try {
-          const isConfigured = await checkServerKVStatus();
-          if (isConfigured) {
-            setDbStatus("GAS");
-            const serverData = await fetchTasksFromServer();
-            
-            if (serverData.tasks && serverData.tasks.length > 0) {
-              loadedTasks = serverData.tasks;
-            } else {
-              loadLocalTasks();
-            }
-            if (serverData.notes && serverData.notes.length > 0) {
-              loadedNotes = serverData.notes;
-            } else {
-              loadLocalNotes();
-            }
-          } else {
-            loadLocalTasks();
-            loadLocalNotes();
-          }
-        } catch (e) {
-          console.error("Fetch error, falling back to local storage:", e);
-          loadLocalTasks();
-          loadLocalNotes();
-        }
-      } else {
-        loadLocalTasks();
-        loadLocalNotes();
-      }
-
-      function loadLocalTasks() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            if (parsed.tasks) loadedTasks = parsed.tasks;
+            if (Array.isArray(parsed.tasks)) localTasks = parsed.tasks;
             if (parsed.theme === "dark") themeMode = "dark";
           } catch (e) {}
         }
-        setDbStatus("LOCAL");
-      }
 
-      function loadLocalNotes() {
         const savedNotes = localStorage.getItem("outsourcing_team_notes_data");
         if (savedNotes) {
           try {
             const parsed = JSON.parse(savedNotes);
-            if (Array.isArray(parsed)) loadedNotes = parsed;
+            if (Array.isArray(parsed)) localNotes = parsed;
           } catch (e) {}
         }
       }
 
-const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
-  return rawTasks.map((t) => {
-    const deadlineDate = safeDate(t.deadline);
-    const startDate = t.startDate ? safeDate(t.startDate) : deadlineDate;
-    const endDate = t.endDate ? safeDate(t.endDate) : deadlineDate;
-    const completedAt = t.completedAt ? safeDate(t.completedAt).toISOString() : undefined;
-    const createdAt = t.createdAt ? safeDate(t.createdAt).toISOString() : new Date().toISOString();
+      const initialCleanedTasks = processAndSanitizeTasks(localTasks);
+      setTasks(initialCleanedTasks);
+      setNotes(localNotes);
 
-    return {
-      ...t,
-      deadline: deadlineDate.toISOString(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      completedAt,
-      createdAt,
-    };
-  });
-};
-
-      // 1. Cleanup finished tasks older than 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      let sanitized = sanitizeTaskDates(loadedTasks).filter((t: Task) => {
-        if (t.status === "DONE") {
-          const compareDate = safeDate(t.completedAt || t.deadline);
-          return isAfter(compareDate, thirtyDaysAgo);
-        }
-        return true;
-      }).map((t: Task) => {
-        // Auto-assign MONTHLY recurrence if title contains '월간' and recurrence is NONE or undefined
-        if ((!t.recurrence || t.recurrence === "NONE") && t.title.includes("월간")) {
-          return { ...t, recurrence: "MONTHLY" as RecurrenceType };
-        }
-        return t;
-      });
-
-      // 2. Automatically clear chain links if the chain's last task deadline passed by more than 3 business days
-      const today = new Date();
-      const expiredChainTaskIds = new Set<string>();
-
-      // Find all start tasks of chains
-      const startTasks = sanitized.filter(t => !t.prevTaskId && t.nextTaskId);
-      startTasks.forEach(startTask => {
-        const chain: Task[] = [startTask];
-        let current = startTask;
-        while (current.nextTaskId) {
-          const next = sanitized.find(t => t.id === current.nextTaskId);
-          if (next) {
-            chain.push(next);
-            current = next;
-          } else {
-            break;
-          }
-        }
-        const lastTask = chain[chain.length - 1];
-        const lastDeadline = safeDate(lastTask.endDate || lastTask.deadline);
-        if (isBefore(lastDeadline, startOfDay(today))) {
-          const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, sanitized);
-          if (businessDaysPassed > 3) {
-            chain.forEach(t => expiredChainTaskIds.add(t.id));
-          }
-        }
-      });
-
-      let validTasks = sanitized;
-      if (expiredChainTaskIds.size > 0) {
-        // Clear chain connections (prevTaskId, nextTaskId, chainName) while keeping the tasks intact
-        validTasks = sanitized.map(t => {
-          if (expiredChainTaskIds.has(t.id)) {
-            return {
-              ...t,
-              prevTaskId: undefined,
-              nextTaskId: undefined,
-              chainName: undefined,
-            };
-          }
-          return t;
-        });
-
-        // Save cleaned state
-        saveTasksToServer(validTasks, loadedNotes).catch(() => {});
-        const data = {
-          tasks: validTasks,
-          theme: themeMode === "dark" ? "dark" : "light",
-          lastSaved: new Date().toISOString(),
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      }
-
-      setTasks(validTasks);
-      setNotes(loadedNotes);
       if (themeMode === "dark") {
         setIsDarkMode(true);
         applyThemeWithNoTransition(true);
       }
       setLastSaved(new Date());
+
+      // Instantly unblock UI
       setIsLoading(false);
+
+      // 2. BACKGROUND ASYNC SERVER SYNC & DB STATUS DETECTION
+      if (typeof window !== "undefined") {
+        try {
+          const isConfigured = await checkServerKVStatus();
+          if (isConfigured) {
+            setDbStatus("GAS"); // Lock DB status to GAS!
+
+            const serverData = await fetchTasksFromServer();
+            let finalTasks = initialCleanedTasks;
+            let finalNotes = localNotes;
+
+            if (serverData.tasks && serverData.tasks.length > 0) {
+              finalTasks = processAndSanitizeTasks(serverData.tasks);
+            }
+            if (serverData.notes && serverData.notes.length > 0) {
+              finalNotes = serverData.notes;
+            }
+
+            setTasks(finalTasks);
+            setNotes(finalNotes);
+
+            const dataToSave = {
+              tasks: finalTasks,
+              theme: themeMode === "dark" ? "dark" : "light",
+              lastSaved: new Date().toISOString(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(finalNotes));
+          } else {
+            setDbStatus("LOCAL");
+          }
+        } catch (e) {
+          console.error("Background server fetch error:", e);
+        }
+      }
     };
 
     initialize();
@@ -658,23 +652,21 @@ const sanitizeTaskDates = (rawTasks: any[]): Task[] => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     localStorage.setItem("outsourcing_team_notes_data", JSON.stringify(newNotes));
 
-    // Background sync to Google Spreadsheet if configured or connected
-    if (dbStatus === "GAS" || isKVConfigured) {
-      startSaveTimer();
-      saveTasksToServer(newTasks, newNotes)
-        .then((success) => {
-          if (success) {
-            setDbStatus("GAS");
-            finishSaveTimer(true);
-          } else {
-            finishSaveTimer(false);
-          }
-        })
-        .catch((e) => {
-          console.error("Failed to sync with Google Spreadsheet:", e);
+    // Background sync to Google Spreadsheet
+    startSaveTimer();
+    saveTasksToServer(newTasks, newNotes)
+      .then((success) => {
+        if (success) {
+          setDbStatus("GAS");
+          finishSaveTimer(true);
+        } else {
           finishSaveTimer(false);
-        });
-    }
+        }
+      })
+      .catch((e) => {
+        console.error("Failed to sync with Google Spreadsheet:", e);
+        finishSaveTimer(false);
+      });
   };
 
   const openNewTaskModal = (initialDate?: Date) => {
