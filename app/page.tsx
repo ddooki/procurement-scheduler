@@ -546,45 +546,6 @@ export default function App() {
       return t;
     });
 
-    const today = new Date();
-    const expiredChainTaskIds = new Set<string>();
-    const startTasks = sanitized.filter(t => !t.prevTaskId && t.nextTaskId);
-
-    startTasks.forEach(startTask => {
-      const chain: Task[] = [startTask];
-      let current = startTask;
-      while (current.nextTaskId) {
-        const next = sanitized.find(t => t.id === current.nextTaskId);
-        if (next) {
-          chain.push(next);
-          current = next;
-        } else {
-          break;
-        }
-      }
-      const lastTask = chain[chain.length - 1];
-      const lastDeadline = safeDate(lastTask.endDate || lastTask.deadline);
-      if (isBefore(lastDeadline, startOfDay(today))) {
-        const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, sanitized);
-        if (businessDaysPassed > 3) {
-          chain.forEach(t => expiredChainTaskIds.add(t.id));
-        }
-      }
-    });
-
-    if (expiredChainTaskIds.size > 0) {
-      return sanitized.map(t => {
-        if (expiredChainTaskIds.has(t.id)) {
-          return {
-            ...t,
-            prevTaskId: undefined,
-            nextTaskId: undefined,
-            chainName: undefined,
-          };
-        }
-        return t;
-      });
-    }
     return sanitized;
   };
 
@@ -1375,18 +1336,18 @@ export default function App() {
                         전체 일정 타임라인
                       </h3>
 
-                      {tasks.length === 0 ? (
+                      {tasks.filter((t) => t.status !== "DONE").length === 0 ? (
                         <div className="h-48 sm:h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
                           <ClipboardList className="w-12 h-12 mb-4 opacity-50" />
-                          <p>등록된 일정이 없습니다.</p>
+                          <p>진행 중이거나 예정된 일정이 없습니다.</p>
                           <button onClick={() => openNewTaskModal()} className="mt-4 text-primary font-bold hover:underline">
-                            첫 번째 일정 추가하기
+                            새 일정 추가하기
                           </button>
                         </div>
                       ) : (
                         <div className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
                           {tasks
-                            .slice()
+                            .filter((t) => t.status !== "DONE")
                             .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime())
                             .map((task) => (
                               <div
@@ -1604,28 +1565,7 @@ export default function App() {
                   <div className="flex-1 bg-surface rounded-2xl border border-border p-4 md:p-5 shadow-sm overflow-y-auto">
                     <div className="space-y-4">
 
-                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId).filter(startTask => {
-                          // Traverse chain to find last task
-                          let current = startTask;
-                          while (current.nextTaskId) {
-                            const next = tasks.find(t => t.id === current.nextTaskId);
-                            if (next) {
-                              current = next;
-                            } else {
-                              break;
-                            }
-                          }
-                          const lastDeadline = safeDate(current.endDate || current.deadline);
-                          const today = new Date();
-                          // Calculate business days passed since last task deadline
-                          if (isBefore(lastDeadline, startOfDay(today))) {
-                            const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, tasks);
-                            if (businessDaysPassed > 3) {
-                              return false; // Hide chain if last task deadline passed by more than 3 business days
-                            }
-                          }
-                          return true;
-                        }).length === 0 ? (
+                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId).length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center text-on-surface-variant opacity-60 border-2 border-dashed border-border rounded-xl">
                           <GitMerge className="w-12 h-12 mb-4 text-tertiary" />
                           <p>설정된 연쇄 업무가 없습니다.</p>
@@ -1633,26 +1573,7 @@ export default function App() {
                         </div>
                       ) : (
                         <div className="flex overflow-x-auto pb-4 gap-4 snap-x scrollbar-thin">
-                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId).filter(startTask => {
-                            let current = startTask;
-                            while (current.nextTaskId) {
-                              const next = tasks.find(t => t.id === current.nextTaskId);
-                              if (next) {
-                                current = next;
-                              } else {
-                                break;
-                              }
-                            }
-                            const lastDeadline = safeDate(current.endDate || current.deadline);
-                            const today = new Date();
-                            if (isBefore(lastDeadline, startOfDay(today))) {
-                              const businessDaysPassed = countBusinessDaysBetween(lastDeadline, today, tasks);
-                              if (businessDaysPassed > 3) {
-                                return false;
-                              }
-                            }
-                            return true;
-                          }).map(startTask => {
+                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId).map(startTask => {
                             // Traverse the chain
                             const chain: Task[] = [startTask];
                             let current = startTask;
@@ -1666,8 +1587,21 @@ export default function App() {
                               }
                             }
 
+                            // Check if the entire chain is expired (last task deadline is in the past)
+                            const lastTask = chain[chain.length - 1];
+                            const lastDeadline = safeDate(lastTask.endDate || lastTask.deadline);
+                            const today = new Date();
+                            const isChainExpired = isBefore(lastDeadline, startOfDay(today));
+
                             return (
-                              <div key={startTask.id} className="w-[calc(25%-12px)] min-w-[240px] flex-shrink-0 snap-start p-4 rounded-2xl bg-surface-variant/30 border border-border flex flex-col gap-3">
+                              <div
+                                key={startTask.id}
+                                className={`w-[calc(25%-12px)] min-w-[240px] flex-shrink-0 snap-start p-4 rounded-2xl border flex flex-col gap-3 transition-colors ${
+                                  isChainExpired
+                                    ? "bg-slate-200/50 dark:bg-slate-800/40 border-slate-300 dark:border-slate-700 opacity-75 grayscale-[0.2]"
+                                    : "bg-surface-variant/30 border-border"
+                                }`}
+                              >
                                 {renamingChainTaskId === startTask.id ? (
                                   <div className="flex items-center gap-1.5 flex-1">
                                     <input
@@ -1700,10 +1634,15 @@ export default function App() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <h3 className="font-bold text-sm text-primary flex items-center justify-between gap-1 flex-1">
+                                  <h3 className={`font-bold text-sm flex items-center justify-between gap-1 flex-1 ${isChainExpired ? "text-slate-600 dark:text-slate-400" : "text-primary"}`}>
                                     <span className="flex items-center gap-1.5 min-w-0 truncate">
                                       <Layers className="w-4 h-4 flex-shrink-0" />
                                       <span className="truncate">{startTask.chainName || `${startTask.title.split(" ")[0] || "업무"} 연쇄 프로세스`}</span>
+                                      {isChainExpired && (
+                                        <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex-shrink-0">
+                                          지나간 업무
+                                        </span>
+                                      )}
                                     </span>
                                     <div className="flex items-center gap-1 flex-shrink-0">
                                       <button
@@ -1721,7 +1660,11 @@ export default function App() {
                                           setSelectedChainTasks(chain.map(c => c.id));
                                           setIsChainSetupModalOpen(true);
                                         }}
-                                        className="px-2 py-1 text-[11px] bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium transition-colors"
+                                        className={`px-2 py-1 text-[11px] rounded-lg font-medium transition-colors ${
+                                          isChainExpired
+                                            ? "bg-slate-300/50 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                                            : "bg-primary/10 hover:bg-primary/20 text-primary"
+                                        }`}
                                         title="체인 순서 및 구성 수정"
                                       >
                                         순서 변경
@@ -1736,7 +1679,9 @@ export default function App() {
                                       <div
                                         onClick={() => openEditTaskModal(task)}
                                         className={`p-2.5 rounded-xl border cursor-pointer hover:border-primary transition-all flex items-center justify-between gap-2 ${
-                                          task.status === "DONE"
+                                          isChainExpired
+                                            ? "bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                                            : task.status === "DONE"
                                             ? "bg-primary-container/20 border-primary/30 text-on-surface-variant"
                                             : task.status === "IN_PROGRESS"
                                             ? "bg-tertiary-container/20 border-tertiary/40"
@@ -1744,7 +1689,11 @@ export default function App() {
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
-                                          <span className="w-4 h-4 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                                            isChainExpired
+                                              ? "bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-600 dark:text-slate-300"
+                                              : "bg-surface border-border"
+                                          }`}>
                                             {idx + 1}
                                           </span>
                                           <div className="min-w-0">
@@ -1757,7 +1706,11 @@ export default function App() {
                                           </div>
                                         </div>
                                         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
-                                          task.status === "DONE" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"
+                                          isChainExpired
+                                            ? "bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                                            : task.status === "DONE"
+                                            ? "bg-primary text-on-primary"
+                                            : "bg-surface-variant text-on-surface-variant"
                                         }`}>
                                           {task.status === "DONE" ? "완료" : task.status === "IN_PROGRESS" ? "진행중" : "대기중"}
                                         </span>
@@ -4682,7 +4635,11 @@ function FullCalendar({
 function getGroupRepresentativeTask(groupTasks: Task[]): Task {
   if (groupTasks.length === 0) return groupTasks[0];
 
-  // Prefer tasks that have NOT been individually edited
+  // 1. Root task (where parentId is undefined/null, i.e. task.id === rootId) is the initial original setup
+  const rootTask = groupTasks.find((t) => !t.parentId);
+  if (rootTask) return rootTask;
+
+  // 2. Otherwise, prefer tasks that have NOT been individually edited
   const unedited = groupTasks.filter((t) => !t.isSingleEdited);
   const candidates = unedited.length > 0 ? unedited : groupTasks;
 
