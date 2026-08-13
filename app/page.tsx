@@ -37,6 +37,8 @@ import {
   FileText,
   Search,
   Copy,
+  Smartphone,
+  Monitor,
 } from "lucide-react";
 import {
   format,
@@ -399,6 +401,19 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "GAS">("LOCAL");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<"auto" | "desktop" | "mobile">("auto");
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isMobileLayout = viewMode === "mobile" || (viewMode === "auto" && isMobileScreen);
 
   // Save Status Toast & Progress Bar States
   const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
@@ -1155,130 +1170,176 @@ export default function App() {
 
   return (
     <div className="flex h-[100dvh] bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
-      {/* Left Navigation */}
-      <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col hidden md:flex transition-[width] duration-200 ease-in-out will-change-[width] ${isSidebarOpen ? "w-64" : "w-16"}`}>
-        {/* Toggle Button in middle-right edge of sidebar */}
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-surface border border-border text-on-surface-variant hover:text-primary hover:bg-surface-variant flex items-center justify-center shadow-md transition-transform hover:scale-110"
-          title={isSidebarOpen ? "메뉴바 접기" : "메뉴바 펼치기"}
-        >
-          {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+      {/* Left Navigation (Desktop view) */}
+      {!isMobileLayout && (
+        <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col transition-[width] duration-200 ease-in-out will-change-[width] ${isSidebarOpen ? "w-64" : "w-16"}`}>
+          {/* Toggle Button in middle-right edge of sidebar */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-surface border border-border text-on-surface-variant hover:text-primary hover:bg-surface-variant flex items-center justify-center shadow-md transition-transform hover:scale-110"
+            title={isSidebarOpen ? "메뉴바 접기" : "메뉴바 펼치기"}
+          >
+            {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
 
-        <div className={`p-4 border-b border-border/50 ${isSidebarOpen ? "p-6 pb-8" : "flex justify-center"}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
-              <ClipboardList className="w-6 h-6" />
+          <div className={`p-4 border-b border-border/50 ${isSidebarOpen ? "p-6 pb-8" : "flex justify-center"}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm flex-shrink-0">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              {isSidebarOpen && (
+                <div className="min-w-0 overflow-hidden whitespace-nowrap">
+                  <h1 className="font-headline text-xl font-bold text-primary leading-tight truncate">
+                    업무관리표
+                  </h1>
+                  <p className="text-xs text-on-surface-variant font-medium truncate">
+                    외주구매팀
+                  </p>
+                </div>
+              )}
             </div>
-            {isSidebarOpen && (
-              <div className="min-w-0 overflow-hidden whitespace-nowrap">
-                <h1 className="font-headline text-xl font-bold text-primary leading-tight truncate">
-                  업무관리표
-                </h1>
-                <p className="text-xs text-on-surface-variant font-medium truncate">
-                  외주구매팀
-                </p>
-              </div>
-            )}
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-          <NavItem
-            icon={<CalendarIcon className="w-5 h-5 flex-shrink-0" />}
-            label="캘린더"
-            isActive={activeTab === "calendar"}
-            onClick={() => setActiveTab("calendar")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<LayoutDashboard className="w-5 h-5 flex-shrink-0" />}
-            label="대시보드"
-            isActive={activeTab === "dashboard"}
-            onClick={() => setActiveTab("dashboard")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<ClipboardList className="w-5 h-5 flex-shrink-0" />}
-            label="작업현황"
-            isActive={activeTab === "tasks"}
-            onClick={() => setActiveTab("tasks")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<GitMerge className="w-5 h-5 flex-shrink-0" />}
-            label="연쇄 업무 설정"
-            isActive={activeTab === "workflows"}
-            onClick={() => setActiveTab("workflows")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<History className="w-5 h-5 flex-shrink-0" />}
-            label="주기별 업무 관리"
-            isActive={activeTab === "periodic"}
-            onClick={() => setActiveTab("periodic")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<FileText className="w-5 h-5 flex-shrink-0" />}
-            label="메모장"
-            isActive={activeTab === "notes"}
-            onClick={() => setActiveTab("notes")}
-            isCollapsed={!isSidebarOpen}
-          />
-          <NavItem
-            icon={<SettingsIcon className="w-5 h-5 flex-shrink-0" />}
-            label="설정 및 백업"
-            isActive={activeTab === "settings"}
-            onClick={() => setActiveTab("settings")}
-            isCollapsed={!isSidebarOpen}
-          />
-        </div>
+          <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+            <NavItem
+              icon={<CalendarIcon className="w-5 h-5 flex-shrink-0" />}
+              label="캘린더"
+              isActive={activeTab === "calendar"}
+              onClick={() => setActiveTab("calendar")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<LayoutDashboard className="w-5 h-5 flex-shrink-0" />}
+              label="대시보드"
+              isActive={activeTab === "dashboard"}
+              onClick={() => setActiveTab("dashboard")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<ClipboardList className="w-5 h-5 flex-shrink-0" />}
+              label="작업현황"
+              isActive={activeTab === "tasks"}
+              onClick={() => setActiveTab("tasks")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<GitMerge className="w-5 h-5 flex-shrink-0" />}
+              label="연쇄 업무 설정"
+              isActive={activeTab === "workflows"}
+              onClick={() => setActiveTab("workflows")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<History className="w-5 h-5 flex-shrink-0" />}
+              label="주기별 업무 관리"
+              isActive={activeTab === "periodic"}
+              onClick={() => setActiveTab("periodic")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<FileText className="w-5 h-5 flex-shrink-0" />}
+              label="메모장"
+              isActive={activeTab === "notes"}
+              onClick={() => setActiveTab("notes")}
+              isCollapsed={!isSidebarOpen}
+            />
+            <NavItem
+              icon={<SettingsIcon className="w-5 h-5 flex-shrink-0" />}
+              label="설정 및 백업"
+              isActive={activeTab === "settings"}
+              onClick={() => setActiveTab("settings")}
+              isCollapsed={!isSidebarOpen}
+            />
+          </div>
 
-        <div className="p-3 border-t border-border/50 flex flex-col gap-3">
-          <div className={`flex items-center ${isSidebarOpen ? "justify-between px-1" : "justify-center"}`}>
-            {isSidebarOpen && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate overflow-hidden whitespace-nowrap">
-                <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
-                <span className="truncate">{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
-              </div>
-            )}
+          <div className="p-3 border-t border-border/50 flex flex-col gap-3">
+            <div className={`flex items-center ${isSidebarOpen ? "justify-between px-1" : "justify-center"}`}>
+              {isSidebarOpen && (
+                <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate overflow-hidden whitespace-nowrap">
+                  <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
+                  <span className="truncate">{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
+                </div>
+              )}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex-shrink-0"
+                title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
+              >
+                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* View Mode Toggle Switch (Desktop Side) */}
+            <div className={`flex items-center bg-surface-variant/50 p-1 rounded-xl border border-border/60 ${isSidebarOpen ? "justify-between" : "justify-center"}`}>
+              <button
+                onClick={() => setViewMode("desktop")}
+                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${viewMode === "desktop" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
+                title="데스크톱 화면 고정"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                {isSidebarOpen && <span>PC 뷰</span>}
+              </button>
+              <button
+                onClick={() => setViewMode("mobile")}
+                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${viewMode === "mobile" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
+                title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                {isSidebarOpen && <span>모바일 뷰</span>}
+              </button>
+            </div>
+
             <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex-shrink-0"
-              title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
+              onClick={() => openNewTaskModal()}
+              title={!isSidebarOpen ? "일정 추가" : undefined}
+              className={`relative w-full py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm overflow-hidden whitespace-nowrap ${
+                isSidebarOpen ? "px-4" : "px-0"
+              }`}
             >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <Plus className={`${isSidebarOpen ? "absolute left-5" : ""} w-5 h-5 flex-shrink-0`} />
+              {isSidebarOpen && <span className="ml-3">일정 추가</span>}
             </button>
           </div>
-          <button
-            onClick={() => openNewTaskModal()}
-            title={!isSidebarOpen ? "일정 추가" : undefined}
-            className={`relative w-full py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm overflow-hidden whitespace-nowrap ${
-              isSidebarOpen ? "px-4" : "px-0"
-            }`}
-          >
-            <Plus className={`${isSidebarOpen ? "absolute left-5" : ""} w-5 h-5 flex-shrink-0`} />
-            {isSidebarOpen && <span className="ml-3">일정 추가</span>}
-          </button>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full lg:h-[100dvh] overflow-hidden">
-        {/* Mobile Header */}
-        <header className="h-16 px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-10 md:hidden">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-primary" />
-            <span className="font-headline font-bold">외주구매팀</span>
+      <div className="flex-1 flex flex-col h-full lg:h-[100dvh] overflow-hidden relative">
+        {/* Header (Shows on mobile or when mobile view mode toggled) */}
+        <header className={`h-14 sm:h-16 px-4 sm:px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-20 ${isMobileLayout ? "flex" : "hidden md:flex md:hidden"}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary flex-shrink-0">
+              <ClipboardList className="w-5 h-5" />
+            </div>
+            <span className="font-headline font-bold text-sm sm:text-base text-primary truncate">외주구매팀 업무관리표</span>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* View Mode Toggle Pill Switcher */}
+            <div className="flex items-center bg-surface-variant p-0.5 rounded-lg border border-border">
+              <button
+                onClick={() => setViewMode(viewMode === "mobile" ? "desktop" : "mobile")}
+                className="flex items-center gap-1 text-[11px] font-bold py-1 px-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                {isMobileLayout ? (
+                  <>
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>PC 뷰로 변경</span>
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>모바일 뷰</span>
+                  </>
+                )}
+              </button>
+            </div>
+
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors"
             >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDarkMode ? <Sun className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
         </header>
@@ -2134,19 +2195,51 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-50">
-        <MobileNavItem icon={<CalendarIcon />} isActive={activeTab === "calendar"} onClick={() => setActiveTab("calendar")} />
-        <MobileNavItem icon={<ClipboardList />} isActive={activeTab === "tasks"} onClick={() => setActiveTab("tasks")} />
-        <button
-          onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
-          className="w-11 h-11 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg transform -translate-y-3"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-        <MobileNavItem icon={<FileText />} isActive={activeTab === "notes"} onClick={() => setActiveTab("notes")} />
-        <MobileNavItem icon={<SettingsIcon />} isActive={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
-      </nav>
+      {/* Bottom Mobile Tab Bar (Active in mobile layout or mobile screen) */}
+      {isMobileLayout && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-md border-t border-border flex items-center justify-around px-2 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] z-50 shadow-lg">
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "calendar" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+          >
+            <CalendarIcon className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">캘린더</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("tasks")}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "tasks" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">작업현황</span>
+          </button>
+
+          {/* Quick Add Floating Action Button in Middle */}
+          <button
+            onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
+            className="w-12 h-12 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all transform -translate-y-4 ring-4 ring-background"
+            title="새 일정 등록"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "dashboard" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">대시보드</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("notes")}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "notes" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+          >
+            <FileText className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">메모장</span>
+          </button>
+        </nav>
+      )}
 
       {/* Task Modal */}
       <AnimatePresence>
