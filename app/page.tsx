@@ -1273,7 +1273,7 @@ export default function App() {
             <div className={`flex items-center bg-surface-variant/50 p-1 rounded-xl border border-border/60 ${isSidebarOpen ? "justify-between" : "justify-center"}`}>
               <button
                 onClick={() => setViewMode("desktop")}
-                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${viewMode === "desktop" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
+                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${!isMobileLayout ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
                 title="데스크톱 화면 고정"
               >
                 <Monitor className="w-3.5 h-3.5" />
@@ -1281,7 +1281,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => setViewMode("mobile")}
-                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${viewMode === "mobile" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
+                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${isMobileLayout ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
                 title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
               >
                 <Smartphone className="w-3.5 h-3.5" />
