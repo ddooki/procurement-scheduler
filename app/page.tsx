@@ -1159,15 +1159,32 @@ export default function App() {
   const todayTasks = tasks.filter(
     (t) => t.status !== "DONE" && isToday(safeDate(t.deadline)),
   );
-  const upcomingDeadlines = tasks
-    .filter(
-      (t) =>
-        t.status !== "DONE" &&
-        startOfDay(safeDate(t.deadline)).getTime() > startOfDay(new Date()).getTime(),
-    )
-    .sort(
-      (a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime(),
-    );
+  const upcomingDeadlines = (() => {
+    const futureActiveTasks = tasks
+      .filter(
+        (t) =>
+          t.status !== "DONE" &&
+          startOfDay(safeDate(t.deadline)).getTime() > startOfDay(new Date()).getTime(),
+      )
+      .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
+
+    const seenRecurringKeys = new Set<string>();
+    const result: Task[] = [];
+
+    for (const task of futureActiveTasks) {
+      const isRecurring = (task.recurrence && task.recurrence !== "NONE") || !!task.parentId;
+      if (isRecurring) {
+        const groupKey = task.parentId || `rec_${task.recurrence}_${(task.title || "").trim().toLowerCase()}`;
+        if (seenRecurringKeys.has(groupKey)) {
+          continue; // Only keep the single nearest upcoming task
+        }
+        seenRecurringKeys.add(groupKey);
+      }
+      result.push(task);
+    }
+
+    return result;
+  })();
 
   const inProgressMultiDayTasks = tasks.filter((t) => {
     if (t.status !== "IN_PROGRESS") return false;
@@ -1416,10 +1433,10 @@ export default function App() {
                         전체 일정 타임라인
                       </h3>
 
-                      {tasks.filter((t) => t.status !== "DONE").length === 0 ? (
+                      {tasks.length === 0 ? (
                         <div className="h-48 sm:h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
                           <ClipboardList className="w-12 h-12 mb-4 opacity-50" />
-                          <p>진행 중이거나 예정된 일정이 없습니다.</p>
+                          <p>등록된 일정이 없습니다.</p>
                           <button onClick={() => openNewTaskModal()} className="mt-4 text-primary font-bold hover:underline">
                             새 일정 추가하기
                           </button>
@@ -1427,15 +1444,15 @@ export default function App() {
                       ) : (
                         <div ref={timelineContainerRef} className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
                           {(() => {
-                            const activeTimelineTasks = tasks
-                              .filter((t) => t.status !== "DONE")
-                              .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
+                            const sortedTimelineTasks = [...tasks].sort(
+                              (a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime()
+                            );
                             
-                            const firstTodayOrUpcomingIndex = activeTimelineTasks.findIndex(
+                            const firstTodayOrUpcomingIndex = sortedTimelineTasks.findIndex(
                               (t) => safeDate(t.deadline).getTime() >= startOfDay(new Date()).getTime()
                             );
 
-                            return activeTimelineTasks.map((task, idx) => (
+                            return sortedTimelineTasks.map((task, idx) => (
                               <div
                                 key={task.id}
                                 ref={idx === firstTodayOrUpcomingIndex ? todayTimelineItemRef : null}
