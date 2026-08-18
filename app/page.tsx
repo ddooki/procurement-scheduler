@@ -424,6 +424,26 @@ export default function App() {
   const isSavingServerRef = useRef<boolean>(false);
   const pendingSavePayloadRef = useRef<{ tasks: Task[]; notes: Note[] } | null>(null);
 
+  // Dashboard Timeline Auto-Scroll Refs
+  const timelineContainerRef = useRef<HTMLDivElement | null>(null);
+  const todayTimelineItemRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll timeline to today's date when viewing dashboard
+  useEffect(() => {
+    if (activeTab === "dashboard") {
+      const timer = setTimeout(() => {
+        if (todayTimelineItemRef.current && timelineContainerRef.current) {
+          const offset = todayTimelineItemRef.current.offsetTop - timelineContainerRef.current.offsetTop;
+          timelineContainerRef.current.scrollTo({
+            top: Math.max(0, offset - 12),
+            behavior: "smooth",
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, tasks]);
+
   const startSaveTimer = () => {
     if (saveTimerIntervalRef.current) {
       clearInterval(saveTimerIntervalRef.current);
@@ -1143,12 +1163,11 @@ export default function App() {
     .filter(
       (t) =>
         t.status !== "DONE" &&
-        isAfter(safeDate(t.deadline), startOfDay(new Date())),
+        startOfDay(safeDate(t.deadline)).getTime() > startOfDay(new Date()).getTime(),
     )
     .sort(
       (a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime(),
-    )
-    .slice(0, 5);
+    );
 
   const inProgressMultiDayTasks = tasks.filter((t) => {
     if (t.status !== "IN_PROGRESS") return false;
@@ -1406,13 +1425,20 @@ export default function App() {
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
-                          {tasks
-                            .filter((t) => t.status !== "DONE")
-                            .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime())
-                            .map((task) => (
+                        <div ref={timelineContainerRef} className="space-y-3 overflow-y-auto pr-2 flex-1 cell-scroll">
+                          {(() => {
+                            const activeTimelineTasks = tasks
+                              .filter((t) => t.status !== "DONE")
+                              .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
+                            
+                            const firstTodayOrUpcomingIndex = activeTimelineTasks.findIndex(
+                              (t) => safeDate(t.deadline).getTime() >= startOfDay(new Date()).getTime()
+                            );
+
+                            return activeTimelineTasks.map((task, idx) => (
                               <div
                                 key={task.id}
+                                ref={idx === firstTodayOrUpcomingIndex ? todayTimelineItemRef : null}
                                 onClick={() => openEditTaskModal(task)}
                                 className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border hover:bg-surface-variant transition-colors cursor-pointer group"
                               >
@@ -1441,7 +1467,8 @@ export default function App() {
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                            ));
+                          })()}
                         </div>
                       )}
                     </div>
