@@ -1378,31 +1378,42 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* View Mode Toggle Pill Switcher */}
-            <div className="flex items-center bg-surface-variant p-0.5 rounded-lg border border-border">
-              <button
-                onClick={() => setViewMode(viewMode === "mobile" ? "desktop" : "mobile")}
-                className="flex items-center gap-1 text-[11px] font-bold py-1 px-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-              >
-                {isMobileLayout ? (
-                  <>
-                    <Monitor className="w-3.5 h-3.5" />
-                    <span>PC 뷰로 변경</span>
-                  </>
-                ) : (
-                  <>
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>모바일 뷰</span>
-                  </>
-                )}
-              </button>
-            </div>
-
+            {/* Dark Mode Button */}
             <button
               onClick={toggleTheme}
-              className="p-1.5 sm:p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
+              title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
             >
-              {isDarkMode ? <Sun className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5" />}
+              {isDarkMode ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                  <span className="truncate">라이트모드</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                  <span className="truncate">다크모드</span>
+                </>
+              )}
+            </button>
+
+            {/* View Mode Toggle Button */}
+            <button
+              onClick={() => setViewMode(viewMode === "mobile" ? "desktop" : "mobile")}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
+              title={isMobileLayout ? "PC 화면 전환" : "모바일 화면 전환"}
+            >
+              {isMobileLayout ? (
+                <>
+                  <Monitor className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="truncate">PC 뷰</span>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="truncate">모바일 뷰</span>
+                </>
+              )}
             </button>
           </div>
         </header>
