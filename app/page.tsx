@@ -1288,42 +1288,69 @@ export default function App() {
             />
           </div>
 
-          <div className="p-3 border-t border-border/50 flex flex-col gap-3">
-            <div className={`flex items-center ${isSidebarOpen ? "justify-between px-1" : "justify-center"}`}>
-              {isSidebarOpen && (
+          <div className="p-3 border-t border-border/50 flex flex-col gap-2.5">
+            {/* Sync status */}
+            <div className={`flex items-center ${isSidebarOpen ? "px-1" : "justify-center"}`}>
+              {isSidebarOpen ? (
                 <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant truncate overflow-hidden whitespace-nowrap">
                   <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
                   <span className="truncate">{dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}</span>
                 </div>
+              ) : (
+                <div title={dbStatus === "GAS" ? "구글 스프레드시트 동기화됨" : "로컬 브라우저 저장"}>
+                  <CheckCircle className={`w-4 h-4 flex-shrink-0 ${dbStatus === "GAS" ? "text-primary" : "text-amber-500"}`} />
+                </div>
               )}
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex-shrink-0"
-                title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
-              >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
             </div>
 
-            {/* View Mode Toggle Switch (Desktop Side) */}
-            <div className={`flex items-center bg-surface-variant/50 p-1 rounded-xl border border-border/60 ${isSidebarOpen ? "justify-between" : "justify-center"}`}>
-              <button
-                onClick={() => setViewMode("desktop")}
-                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${!isMobileLayout ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
-                title="데스크톱 화면 고정"
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                {isSidebarOpen && <span>PC 뷰</span>}
-              </button>
-              <button
-                onClick={() => setViewMode("mobile")}
-                className={`flex items-center justify-center gap-1 text-xs font-bold py-1.5 px-2 rounded-lg transition-all ${isMobileLayout ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}
-                title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                {isSidebarOpen && <span>모바일 뷰</span>}
-              </button>
-            </div>
+            {/* Dark Mode & Mobile View Button on the same row */}
+            {isSidebarOpen ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={toggleTheme}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
+                  title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
+                >
+                  {isDarkMode ? (
+                    <>
+                      <Sun className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      <span className="truncate">라이트모드</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                      <span className="truncate">다크모드</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setViewMode("mobile")}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
+                  title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="truncate">모바일 뷰</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1.5">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-xl hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
+                  title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
+                >
+                  {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                </button>
+                <button
+                  onClick={() => setViewMode("mobile")}
+                  className="p-2 rounded-xl hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
+                  title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
+                >
+                  <Smartphone className="w-4 h-4 text-primary" />
+                </button>
+              </div>
+            )}
 
             <button
               onClick={() => openNewTaskModal()}
