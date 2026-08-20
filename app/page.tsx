@@ -575,10 +575,16 @@ export default function App() {
       }
       return true;
     }).map((t: Task) => {
-      if ((!t.recurrence || t.recurrence === "NONE") && t.title.includes("월간")) {
-        return { ...t, recurrence: "MONTHLY" as RecurrenceType };
+      let mod = { ...t };
+      if ((!mod.recurrence || mod.recurrence === "NONE") && mod.title.includes("월간")) {
+        mod.recurrence = "MONTHLY" as RecurrenceType;
       }
-      return t;
+      // If task is a recurring child instance (has parentId), remove inherited chain pointers to prevent duplicate chain rendering
+      if (mod.parentId) {
+        mod.prevTaskId = undefined;
+        mod.nextTaskId = undefined;
+      }
+      return mod;
     });
 
     return sanitized;
@@ -910,6 +916,8 @@ export default function App() {
               ...baseBatchTask,
               id: crypto.randomUUID(),
               parentId: rootId,
+              prevTaskId: undefined,
+              nextTaskId: undefined,
               deadline: nextDate.toISOString(),
               startDate: nextStart ? nextStart.toISOString() : undefined,
               endDate: nextEnd ? nextEnd.toISOString() : undefined,
@@ -947,6 +955,8 @@ export default function App() {
                 type: baseBatchTask.type,
                 color: baseBatchTask.color,
                 recurrence: baseBatchTask.recurrence,
+                prevTaskId: t.id === rootId ? baseBatchTask.prevTaskId : undefined,
+                nextTaskId: t.id === rootId ? baseBatchTask.nextTaskId : undefined,
                 startDate: tStart ? tStart.toISOString() : t.startDate,
                 endDate: tEnd ? tEnd.toISOString() : t.endDate,
                 isSingleEdited: false,
@@ -1003,6 +1013,8 @@ export default function App() {
             ...newTask,
             id: recId,
             parentId: newTask.id,
+            prevTaskId: undefined,
+            nextTaskId: undefined,
             deadline: nextDate.toISOString(),
             startDate: nextStart ? nextStart.toISOString() : undefined,
             endDate: nextEnd ? nextEnd.toISOString() : undefined,
@@ -1708,7 +1720,7 @@ export default function App() {
                   <div className="flex-1 bg-surface rounded-2xl border border-border p-4 md:p-5 shadow-sm overflow-y-auto">
                     <div className="space-y-4">
 
-                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId).length === 0 ? (
+                      {tasks.filter(t => !t.prevTaskId && t.nextTaskId && !t.parentId).length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center text-on-surface-variant opacity-60 border-2 border-dashed border-border rounded-xl">
                           <GitMerge className="w-12 h-12 mb-4 text-tertiary" />
                           <p>설정된 연쇄 업무가 없습니다.</p>
@@ -1716,7 +1728,7 @@ export default function App() {
                         </div>
                       ) : (
                         <div className="flex overflow-x-auto pb-4 gap-4 snap-x scrollbar-thin">
-                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId).map(startTask => {
+                          {tasks.filter(t => !t.prevTaskId && t.nextTaskId && !t.parentId).map(startTask => {
                             // Traverse the chain
                             const chain: Task[] = [startTask];
                             let current = startTask;
@@ -2576,12 +2588,12 @@ export default function App() {
 
                 {/* Task List */}
                 <div className="flex-1 min-h-[200px] max-h-[35vh] overflow-y-auto border border-border rounded-xl p-2 space-y-1.5 bg-background/50">
-                  {tasks.length === 0 ? (
+                  {tasks.filter(t => !t.parentId).length === 0 ? (
                     <div className="h-full flex items-center justify-center text-xs text-on-surface-variant/60">
                       등록된 일정이 없습니다.
                     </div>
                   ) : (
-                    [...tasks]
+                    [...tasks.filter(t => !t.parentId)]
                       .sort((a, b) => {
                         if (chainSortKey === "title") {
                           return a.title.localeCompare(b.title);
