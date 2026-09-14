@@ -393,7 +393,6 @@ export default function App() {
   const [isBatchGroupEdit, setIsBatchGroupEdit] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [rescheduleTask, setRescheduleTask] = useState<Task | null>(null);
-  const [isSingleEditNoticeOpen, setIsSingleEditNoticeOpen] = useState(false);
   const [selectedPeriodicGroup, setSelectedPeriodicGroup] = useState<{ rootId: string; sampleTask: Task } | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -758,8 +757,9 @@ export default function App() {
   };
 
   const openEditTaskModal = (task: Task, isBatchEdit: boolean = false) => {
+    const isRecurring = (task.recurrence && task.recurrence !== "NONE") || !!task.parentId;
     setEditingTask(task);
-    setIsBatchGroupEdit(isBatchEdit);
+    setIsBatchGroupEdit(isBatchEdit || isRecurring);
     setIsTaskModalOpen(true);
   };
 
@@ -886,7 +886,7 @@ export default function App() {
         // If recurrence removed, delete related auto-generated child tasks
         updatedTasks = updatedTasks.filter(t => t.parentId !== rootId);
         updatedTasks = updatedTasks.map(t => (t.id === editingTask.id ? { ...updatedTask, isSingleEdited: false } : t));
-      } else if (isBatchGroupEdit) {
+      } else if (isBatchGroupEdit || !!editingTask.parentId || (editingTask.recurrence && editingTask.recurrence !== "NONE")) {
         // Batch Edit: update or regenerate entire group
         const baseBatchTask = { ...updatedTask, isSingleEdited: false };
         if ((oldRecurrence as string) !== (newRecurrence as string) || customRecurrenceCount) {
@@ -966,10 +966,8 @@ export default function App() {
           });
         }
       } else {
-        // Individual Edit: update strictly the targeted single instance
-        const singleUpdatedTask = { ...updatedTask, isSingleEdited: true };
-        updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? singleUpdatedTask : t));
-        setIsSingleEditNoticeOpen(true);
+        // Normal single task edit (일반 비반복 업무 수정)
+        updatedTasks = updatedTasks.map((t) => (t.id === editingTask.id ? updatedTask : t));
       }
     } else {
       // Create new
@@ -2357,7 +2355,7 @@ export default function App() {
                   {editingTask && editingTask.id
                     ? isBatchGroupEdit
                       ? "전체 일정 일괄 수정"
-                      : "개별 회차 수정"
+                      : "일정 수정"
                     : "새 일정 등록"}
                 </h2>
                 <button
@@ -2374,41 +2372,6 @@ export default function App() {
                 onCancel={() => setIsTaskModalOpen(false)}
                 onDelete={editingTask && editingTask.id ? () => handleDeleteTask(editingTask.id) : undefined}
               />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Reschedule Modal */}
-      <AnimatePresence>
-        {isSingleEditNoticeOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setIsSingleEditNoticeOpen(false)}
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-surface w-full max-w-sm rounded-2xl shadow-xl p-5 border border-border flex flex-col gap-3 text-center z-10"
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
-                <Check className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-base text-on-surface">일정 변경 안내</h3>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                해당 일자의 일정 변경 내용이 성공적으로 반영되었습니다. (선택한 개별 일차만 변경되었습니다)
-              </p>
-              <button
-                onClick={() => setIsSingleEditNoticeOpen(false)}
-                className="mt-2 w-full py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:opacity-90 transition-colors"
-              >
-                확인
-              </button>
             </motion.div>
           </div>
         )}
@@ -2436,7 +2399,6 @@ export default function App() {
             groupInfo={selectedPeriodicGroup}
             tasks={tasks}
             onEditTask={openEditTaskModal}
-            onDeleteTask={handleDeleteTask}
             onDeleteGroup={handleDeleteTaskGroup}
             onClose={() => setSelectedPeriodicGroup(null)}
           />
@@ -4981,12 +4943,21 @@ function PeriodicTable({
                   {task.description ? task.description : <span className="opacity-40">-</span>}
                 </td>
                 <td className="p-3 text-left">
-                  <button
-                    onClick={() => onViewDetail(rootId, task)}
-                    className="px-3 py-1 text-xs font-bold rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors shadow-sm whitespace-nowrap"
-                  >
-                    상세보기
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onViewDetail(rootId, task)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      상세보기
+                    </button>
+                    <button
+                      onClick={() => onEdit(task)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-surface hover:bg-surface-variant text-on-surface transition-colors whitespace-nowrap"
+                      title="전체 일괄 수정"
+                    >
+                      수정
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
@@ -5001,14 +4972,12 @@ function PeriodicGroupDetailModal({
   groupInfo,
   tasks,
   onEditTask,
-  onDeleteTask,
   onDeleteGroup,
   onClose,
 }: {
   groupInfo: { rootId: string; sampleTask: Task };
   tasks: Task[];
   onEditTask: (t: Task, isBatchEdit?: boolean) => void;
-  onDeleteTask: (id: string) => void;
   onDeleteGroup: (rootId: string) => void;
   onClose: () => void;
 }) {
@@ -5092,27 +5061,15 @@ function PeriodicGroupDetailModal({
                 진행중
               </span>
             )}
+            {t.status === "TODO" && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant">
+                대기
+              </span>
+            )}
           </div>
           {t.description && (
             <p className="text-xs text-on-surface-variant/80 mt-1 truncate">{t.description}</p>
           )}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            onClick={() => {
-              onClose();
-              onEditTask(t);
-            }}
-            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-surface hover:bg-surface-variant text-on-surface transition-colors"
-          >
-            개별 수정
-          </button>
-          <button
-            onClick={() => onDeleteTask(t.id)}
-            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-error/40 text-error hover:bg-error-container/20 transition-colors"
-          >
-            삭제
-          </button>
         </div>
       </div>
     );
@@ -5140,17 +5097,17 @@ function PeriodicGroupDetailModal({
               <h2 className="font-headline text-lg font-bold text-on-surface">{sampleTask.title}</h2>
               <TaskBadge type={sampleTask.type} />
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xs font-bold text-primary">{formatRangeSummary()} ({groupTasks.length}개 일정)</p>
+            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+              <p className="text-xs font-bold text-primary">{formatRangeSummary()} ({groupTasks.length}개 회차)</p>
               <button
                 onClick={() => {
                   onClose();
                   onEditTask(sampleTask, true); // edit all flag
                 }}
-                className="text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors"
+                className="text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-sm"
                 title="이 정기 반복 그룹의 전체 일정을 일괄 수정합니다"
               >
-                전체 일괄 수정
+                <Pencil className="w-3.5 h-3.5" /> 전체 일괄 수정
               </button>
             </div>
           </div>
@@ -5229,9 +5186,9 @@ function PeriodicGroupDetailModal({
                 onClose();
               }
             }}
-            className="px-3 py-2 text-xs font-bold text-error border border-error/50 rounded-xl hover:bg-error-container/20 transition-colors flex items-center gap-1"
+            className="px-3.5 py-2 text-xs font-bold text-error border border-error/50 rounded-xl hover:bg-error-container/20 transition-colors flex items-center gap-1.5"
           >
-            <Trash2 className="w-3.5 h-3.5" /> 전체 반복 일정 삭제
+            <Trash2 className="w-4 h-4" /> 전체 반복 일정 삭제
           </button>
           <button
             onClick={onClose}
