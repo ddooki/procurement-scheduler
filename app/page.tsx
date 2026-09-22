@@ -4917,16 +4917,39 @@ function PeriodicTable({
     }
   };
 
+  const formatGroupDateRange = (rootId: string) => {
+    const groupTasks = (allTasks || tasks)
+      .filter((t) => (t.parentId || t.id) === rootId)
+      .sort((a, b) => safeDate(a.deadline).getTime() - safeDate(b.deadline).getTime());
+
+    if (groupTasks.length === 0) return "-";
+
+    const first = groupTasks[0];
+    const last = groupTasks[groupTasks.length - 1];
+
+    const firstDate = safeDate(first.startDate || first.deadline);
+    const lastDate = safeDate(last.endDate || last.deadline);
+
+    const firstStr = format(firstDate, "yy년 MM월 dd일", { locale: ko });
+    const lastStr = format(lastDate, "yy년 MM월 dd일", { locale: ko });
+
+    if (groupTasks.length === 1 || isSameDay(firstDate, lastDate)) {
+      return `${firstStr} (1개 회차)`;
+    }
+
+    return `${firstStr}~ ${lastStr} (${groupTasks.length}개 회차)`;
+  };
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-      <table className="w-full text-left text-sm border-collapse table-fixed">
+      <table className="w-full text-left text-sm border-collapse table-fixed min-w-[780px]">
         <thead>
           <tr className="bg-surface-variant/50 border-b border-border text-xs font-bold text-on-surface-variant">
-            <th className="p-3 text-left w-[25%]">업무명</th>
-            <th className="p-3 text-left w-[15%]">업무구분</th>
-            <th className="p-3 text-left w-[20%]">예정 시점</th>
-            <th className="p-3 text-left w-[28%]">상세 내용</th>
-            <th className="p-3 text-left w-[12%]">관리</th>
+            <th className="p-3 text-left w-[24%]">업무명</th>
+            <th className="p-3 text-left w-[12%]">업무구분</th>
+            <th className="p-3 text-left w-[18%]">예정 시점</th>
+            <th className="p-3 text-left w-[33%]">반복 기간</th>
+            <th className="p-3 text-center w-[13%]">관리</th>
           </tr>
         </thead>
         <tbody>
@@ -4934,16 +4957,18 @@ function PeriodicTable({
             const rootId = task.parentId || task.id;
             return (
               <tr key={task.id} className="border-b border-border/40 hover:bg-surface-variant/20 transition-colors">
-                <td className="p-3 font-bold text-on-surface text-left truncate">{task.title}</td>
+                <td className="p-3 font-bold text-on-surface text-left truncate" title={task.title}>{task.title}</td>
                 <td className="p-3 text-left"><TaskBadge type={task.type} /></td>
-                <td className="p-3 font-medium text-xs text-on-surface-variant text-left">
+                <td className="p-3 font-medium text-xs text-on-surface-variant text-left whitespace-nowrap">
                   {formatSchedule(task)}
                 </td>
-                <td className="p-3 text-left truncate text-xs text-on-surface-variant">
-                  {task.description ? task.description : <span className="opacity-40">-</span>}
+                <td className="p-3 text-left text-xs font-medium text-on-surface-variant whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-on-surface">
+                    {formatGroupDateRange(rootId)}
+                  </span>
                 </td>
-                <td className="p-3 text-left">
-                  <div className="flex items-center gap-1.5">
+                <td className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-1.5">
                     <button
                       onClick={() => onViewDetail(rootId, task)}
                       className="px-2.5 py-1 text-xs font-bold rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors shadow-sm whitespace-nowrap"
@@ -5019,24 +5044,22 @@ function PeriodicGroupDetailModal({
     return `${format(start, "yyyy년 MM월 dd일 (EEE)", { locale: ko })} ~ ${format(end, "MM월 dd일 (EEE)", { locale: ko })}`;
   };
 
-  // Determine date range summary based on recurrence type
+  // Determine date range summary
   const formatRangeSummary = () => {
     if (groupTasks.length === 0) return "설정된 일정 없음";
-    const firstDate = parseISO(groupTasks[0].deadline);
-    const lastDate = parseISO(groupTasks[groupTasks.length - 1].deadline);
+    const firstTask = groupTasks[0];
+    const lastTask = groupTasks[groupTasks.length - 1];
+    const firstDate = safeDate(firstTask.startDate || firstTask.deadline);
+    const lastDate = safeDate(lastTask.endDate || lastTask.deadline);
 
-    switch (sampleTask.recurrence) {
-      case "WEEKLY":
-        return `반복 기간: ${format(firstDate, "yyyy년 MM월 dd일", { locale: ko })} ~ ${format(lastDate, "yyyy년 MM월 dd일", { locale: ko })}`;
-      case "MONTHLY":
-      case "QUARTERLY":
-      case "SEMI_ANNUALLY":
-        return `반복 기간: ${format(firstDate, "yyyy년 MM월", { locale: ko })} ~ ${format(lastDate, "yyyy년 MM월", { locale: ko })}`;
-      case "ANNUALLY":
-        return `반복 기간: ${format(firstDate, "yyyy년", { locale: ko })} ~ ${format(lastDate, "yyyy년", { locale: ko })}`;
-      default:
-        return `반복 기간: ${format(firstDate, "yyyy년 MM월 dd일", { locale: ko })} ~ ${format(lastDate, "yyyy년 MM월 dd일", { locale: ko })}`;
+    const firstStr = format(firstDate, "yy년 MM월 dd일", { locale: ko });
+    const lastStr = format(lastDate, "yy년 MM월 dd일", { locale: ko });
+
+    if (groupTasks.length === 1 || isSameDay(firstDate, lastDate)) {
+      return `${firstStr}`;
     }
+
+    return `${firstStr}~ ${lastStr}`;
   };
 
   const renderTaskRow = (t: Task) => {
@@ -5098,7 +5121,7 @@ function PeriodicGroupDetailModal({
               <TaskBadge type={sampleTask.type} />
             </div>
             <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-              <p className="text-xs font-bold text-primary">{formatRangeSummary()} ({groupTasks.length}개 회차)</p>
+              <p className="text-xs font-bold text-primary">반복 기간: {formatRangeSummary()} ({groupTasks.length}개 회차)</p>
               <button
                 onClick={() => {
                   onClose();
