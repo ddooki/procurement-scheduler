@@ -39,6 +39,7 @@ import {
   Copy,
   Smartphone,
   Monitor,
+  SplitSquareVertical,
 } from "lucide-react";
 import {
   format,
@@ -400,10 +401,31 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<"LOCAL" | "GAS">("LOCAL");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [viewMode, setViewMode] = useState<"auto" | "desktop" | "mobile">("auto");
+  const [viewMode, setViewMode] = useState<"desktop" | "portrait" | "mobile">("desktop");
   const [isMobileScreen, setIsMobileScreen] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("procurement_view_mode") as ("desktop" | "portrait" | "mobile") | null;
+      if (saved && (saved === "desktop" || saved === "portrait" || saved === "mobile")) {
+        setViewMode(saved);
+        if (saved === "portrait") {
+          setIsSidebarOpen(false);
+        }
+      } else {
+        const isNarrow = window.innerWidth < 768;
+        const isTall = window.innerHeight > window.innerWidth * 1.15;
+        if (isNarrow) {
+          setViewMode("mobile");
+        } else if (isTall) {
+          setViewMode("portrait");
+          setIsSidebarOpen(false);
+        } else {
+          setViewMode("desktop");
+        }
+      }
+    }
+
     const handleResize = () => {
       setIsMobileScreen(window.innerWidth < 768);
     };
@@ -412,7 +434,20 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const isMobileLayout = viewMode === "mobile" || (viewMode === "auto" && isMobileScreen);
+  const changeViewMode = (mode: "desktop" | "portrait" | "mobile") => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("procurement_view_mode", mode);
+    }
+    if (mode === "portrait") {
+      setIsSidebarOpen(false);
+    } else if (mode === "desktop") {
+      setIsSidebarOpen(true);
+    }
+  };
+
+  const isMobileLayout = viewMode === "mobile";
+  const isPortraitLayout = viewMode === "portrait";
 
   // Save Status Toast & Progress Bar States
   const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
@@ -1313,12 +1348,13 @@ export default function App() {
               )}
             </div>
 
-            {/* Dark Mode & Mobile View Button on the same row */}
+            {/* Theme & 3-Mode View Controls */}
             {isSidebarOpen ? (
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="space-y-1.5">
+                {/* Dark Mode Button */}
                 <button
                   onClick={toggleTheme}
-                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
                   title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
                 >
                   {isDarkMode ? (
@@ -1334,14 +1370,47 @@ export default function App() {
                   )}
                 </button>
 
-                <button
-                  onClick={() => setViewMode("mobile")}
-                  className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
-                  title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                  <span className="truncate">모바일 뷰</span>
-                </button>
+                {/* 3-Mode View Switcher (가로 / 세로 / 모바일) */}
+                <div className="bg-surface-variant/40 p-1 rounded-xl border border-border/60 flex items-center gap-1 shadow-2xs">
+                  <button
+                    onClick={() => changeViewMode("desktop")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "desktop"
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                    }`}
+                    title="PC 가로 화면 (와이드 모니터)"
+                  >
+                    <Monitor className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate text-[11px]">가로</span>
+                  </button>
+
+                  <button
+                    onClick={() => changeViewMode("portrait")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "portrait"
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                    }`}
+                    title="PC 세로 화면 (피벗 모니터 듀얼 관제)"
+                  >
+                    <SplitSquareVertical className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate text-[11px]">세로</span>
+                  </button>
+
+                  <button
+                    onClick={() => changeViewMode("mobile")}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
+                      (viewMode as string) === "mobile"
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                    }`}
+                    title="모바일 화면 (스마트폰 / Z 폴드 커버)"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate text-[11px]">모바일</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-1.5">
@@ -1353,11 +1422,17 @@ export default function App() {
                   {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
                 </button>
                 <button
-                  onClick={() => setViewMode("mobile")}
-                  className="p-2 rounded-xl hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
-                  title="모바일 화면 전환 (폴드7 커버스크린 최적화)"
+                  onClick={() => {
+                    if ((viewMode as string) === "desktop") changeViewMode("portrait");
+                    else if ((viewMode as string) === "portrait") changeViewMode("mobile");
+                    else changeViewMode("desktop");
+                  }}
+                  className="p-2 rounded-xl bg-surface-variant/80 hover:bg-surface-variant text-primary transition-colors flex items-center justify-center border border-border/50"
+                  title={`화면 모드 전환 (현재: ${viewMode === "desktop" ? "가로" : viewMode === "portrait" ? "세로(피벗)" : "모바일"}, 클릭 시 순환)`}
                 >
-                  <Smartphone className="w-4 h-4 text-primary" />
+                  {(viewMode as string) === "desktop" && <Monitor className="w-4 h-4 text-primary" />}
+                  {(viewMode as string) === "portrait" && <SplitSquareVertical className="w-4 h-4 text-indigo-500" />}
+                  {(viewMode as string) === "mobile" && <Smartphone className="w-4 h-4 text-emerald-500" />}
                 </button>
               </div>
             )}
@@ -1378,13 +1453,23 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full lg:h-[100dvh] overflow-hidden relative">
-        {/* Header (Shows on mobile or when mobile view mode toggled) */}
-        <header className={`h-14 sm:h-16 px-4 sm:px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-20 ${isMobileLayout ? "flex" : "hidden md:flex md:hidden"}`}>
+        {/* Header (Shows on mobile, portrait pivot mode, or when toggled) */}
+        <header className={`h-14 sm:h-16 px-3 sm:px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-20 ${
+          isMobileLayout || isPortraitLayout ? "flex" : "hidden md:flex md:hidden"
+        }`}>
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary flex-shrink-0">
               <ClipboardList className="w-5 h-5" />
             </div>
-            <span className="font-headline font-bold text-sm sm:text-base text-primary truncate">외주구매팀 업무관리표</span>
+            <span className="font-headline font-bold text-sm sm:text-base text-primary truncate">
+              외주구매팀 업무관리표
+            </span>
+            {isPortraitLayout && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <SplitSquareVertical className="w-3 h-3" />
+                세로 피벗 관제
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
@@ -1397,34 +1482,57 @@ export default function App() {
               {isDarkMode ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                  <span className="truncate">라이트모드</span>
+                  <span className="hidden sm:inline truncate">라이트모드</span>
                 </>
               ) : (
                 <>
                   <Moon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                  <span className="truncate">다크모드</span>
+                  <span className="hidden sm:inline truncate">다크모드</span>
                 </>
               )}
             </button>
 
-            {/* View Mode Toggle Button */}
-            <button
-              onClick={() => setViewMode(viewMode === "mobile" ? "desktop" : "mobile")}
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
-              title={isMobileLayout ? "PC 화면 전환" : "모바일 화면 전환"}
-            >
-              {isMobileLayout ? (
-                <>
-                  <Monitor className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                  <span className="truncate">PC 뷰</span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                  <span className="truncate">모바일 뷰</span>
-                </>
-              )}
-            </button>
+            {/* 3-Mode View Switcher in Header */}
+            <div className="bg-surface-variant/50 p-0.5 rounded-xl border border-border/60 flex items-center gap-0.5 shadow-2xs">
+              <button
+                onClick={() => changeViewMode("desktop")}
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                  (viewMode as string) === "desktop"
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                }`}
+                title="PC 가로 화면 (와이드 모니터)"
+              >
+                <Monitor className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline truncate text-[11px]">가로</span>
+              </button>
+
+              <button
+                onClick={() => changeViewMode("portrait")}
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                  (viewMode as string) === "portrait"
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                }`}
+                title="PC 세로 화면 (피벗 모니터 듀얼 관제)"
+              >
+                <SplitSquareVertical className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline truncate text-[11px]">세로</span>
+              </button>
+
+              <button
+                onClick={() => changeViewMode("mobile")}
+                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                  (viewMode as string) === "mobile"
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
+                }`}
+                title="모바일 화면 (스마트폰 / Z 폴드 커버)"
+              >
+                <Smartphone className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline truncate text-[11px]">모바일</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1473,9 +1581,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 lg:min-h-0">
+                  <div className={`grid ${isPortraitLayout ? "grid-cols-1 gap-4" : "grid-cols-1 lg:grid-cols-3 gap-6"} flex-1 lg:min-h-0`}>
                     {/* Main Schedule List */}
-                    <div className="lg:col-span-2 bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex flex-col min-h-[350px] lg:min-h-0 lg:overflow-hidden">
+                    <div className={`${isPortraitLayout ? "order-2 flex-1 min-h-[350px]" : "lg:col-span-2"} bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex flex-col min-h-[350px] lg:min-h-0 lg:overflow-hidden`}>
                       <h3 className="font-headline text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 text-on-surface">
                         <CalendarIcon className="w-5 h-5 sm:w-6 h-6 text-primary" />
                         전체 일정 타임라인
@@ -1539,7 +1647,7 @@ export default function App() {
                     </div>
 
                     {/* Right Column: Today & Upcoming */}
-                    <div className="flex flex-col gap-6 lg:overflow-hidden lg:min-h-0">
+                    <div className={`${isPortraitLayout ? "order-1 grid grid-cols-1 sm:grid-cols-2 gap-4 h-auto sm:h-[260px] shrink-0" : "flex flex-col gap-6 lg:overflow-hidden lg:min-h-0"}`}>
                       {/* Today's Tasks */}
                       <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] lg:min-h-0 lg:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-primary">
@@ -1684,6 +1792,7 @@ export default function App() {
                       }}
                       selectedDate={selectedCalendarDate}
                       onSelectDate={setSelectedCalendarDate}
+                      isPortrait={isPortraitLayout}
                     />
                   </div>
                 </motion.div>
@@ -4130,6 +4239,7 @@ function FullCalendar({
   selectedDate,
   onSelectDate,
   onContextMenu,
+  isPortrait = false,
 }: {
   tasks: Task[];
   onEditTask: (t: Task) => void;
@@ -4137,6 +4247,7 @@ function FullCalendar({
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
   onContextMenu?: (e: React.MouseEvent, t: Task) => void;
+  isPortrait?: boolean;
 }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showSelector, setShowSelector] = useState(false);
@@ -4392,11 +4503,16 @@ function FullCalendar({
       </div>
 
       {/* Main Grid & Timeline Section */}
-      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+      <div className={`flex-1 flex overflow-hidden min-h-0 relative ${isPortrait ? "flex-col gap-3" : ""}`}>
         {calendarViewMode === "grid" ? (
-          /* Left Side: Calendar Grid */
-          <div className="flex flex-col h-full flex-1 min-w-[300px] sm:min-w-[600px] overflow-x-auto">
-            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 text-center text-xs sm:text-sm font-bold mb-2 p-1 flex-shrink-0`}>
+          <>
+            {/* Left Side: Calendar Grid (or Top Section in Portrait) */}
+            <div className={`flex flex-col ${
+            isPortrait
+              ? "flex-[1.1] min-h-[350px] overflow-hidden bg-surface/40 rounded-xl border border-border/70 p-2"
+              : "h-full flex-1 min-w-[300px] sm:min-w-[600px] overflow-x-auto"
+          }`}>
+            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 text-center text-xs sm:text-sm font-bold mb-1.5 p-1 flex-shrink-0`}>
               {!hideWeekends && <div className="text-red-500">일</div>}
               <div className="text-on-surface-variant">월</div>
               <div className="text-on-surface-variant">화</div>
@@ -4406,7 +4522,11 @@ function FullCalendar({
               {!hideWeekends && <div className="text-blue-500">토</div>}
             </div>
 
-            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-2 flex-1 auto-rows-[minmax(90px,_1fr)] sm:auto-rows-[minmax(115px,_1fr)] overflow-y-auto pr-1 pb-2 px-1 cell-scroll`}>
+            <div className={`grid ${hideWeekends ? "grid-cols-5" : "grid-cols-7"} gap-1 sm:gap-1.5 flex-1 ${
+              isPortrait
+                ? "auto-rows-[minmax(56px,_1fr)] sm:auto-rows-[minmax(66px,_1fr)]"
+                : "auto-rows-[minmax(90px,_1fr)] sm:auto-rows-[minmax(115px,_1fr)]"
+            } overflow-y-auto pr-1 pb-2 px-1 cell-scroll`}>
               {paddingDays.map((i) => (
                 <div key={`pad-${i}`} className="p-1 rounded-lg bg-surface/30" />
               ))}
@@ -4579,7 +4699,181 @@ function FullCalendar({
               })()}
             </div>
           </div>
-        ) : (
+
+          {/* Split Lower Control Section in Portrait Mode */}
+          {isPortrait && (
+            <div className="flex-1 min-h-[260px] bg-surface rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="px-3 py-2.5 border-b border-border bg-surface-variant/40 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {selectedDate ? (
+                    <>
+                      <CalendarDays className="w-4 h-4 text-primary flex-shrink-0" />
+                      <h4 className="font-headline font-bold text-xs sm:text-sm text-primary truncate">
+                        {format(selectedDate, "M월 d일 (E) 상세 일정", { locale: ko })}
+                      </h4>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary">
+                        {selectedDateTasks.length}건
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Activity className="w-4 h-4 text-tertiary flex-shrink-0" />
+                      <h4 className="font-headline font-bold text-xs sm:text-sm text-on-surface truncate">
+                        외주구매팀 종합 관제 (오늘의 할 일 & 마감 임박)
+                      </h4>
+                      <span className="hidden sm:inline text-[10px] text-on-surface-variant">
+                        · 달력 날짜를 클릭하면 해당 일자의 상세 일정이 표시됩니다
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => onAddTask(selectedDate || new Date())}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold hover:opacity-90 transition-opacity shadow-xs"
+                    title={selectedDate ? `${format(selectedDate, "M/d")}에 일정 추가` : "새 일정 추가"}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>일정 추가</span>
+                  </button>
+
+                  {selectedDate && (
+                    <button
+                      onClick={() => onSelectDate(null)}
+                      className="px-2 py-1 rounded-lg text-xs font-bold bg-surface border border-border text-on-surface-variant hover:bg-surface-variant transition-colors"
+                      title="오늘 / 실시간 관제로 복귀"
+                    >
+                      전체 보기
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-3 cell-scroll">
+                {selectedDate ? (
+                  selectedDateTasks.length === 0 ? (
+                    <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-xs text-on-surface-variant/60 border-2 border-dashed border-border/80 rounded-xl p-4">
+                      <CalendarDays className="w-7 h-7 mb-1.5 opacity-40 text-on-surface-variant" />
+                      <p className="font-bold">선택하신 날짜에 등록된 일정이 없습니다.</p>
+                      <button
+                        onClick={() => onAddTask(selectedDate)}
+                        className="mt-2 text-primary font-bold hover:underline text-xs flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> 이 날짜에 새 일정 등록하기
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {selectedDateTasks.map((t) => (
+                        <div
+                          key={t.id}
+                          onClick={() => onEditTask(t)}
+                          className="p-3 bg-surface-variant/40 hover:bg-surface-variant border border-border/80 rounded-xl cursor-pointer transition-all hover:shadow-xs flex items-center justify-between gap-3 group"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: t.color || "#4a7c59" }}
+                              />
+                              <h5 className={`font-bold text-xs truncate ${t.status === "DONE" ? "line-through opacity-50" : "text-on-surface"}`}>
+                                {t.title}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-medium">
+                              <span>{t.startDate ? `${format(parseISO(t.startDate), "HH:mm")} ~ ${format(parseISO(t.endDate || t.deadline), "HH:mm")}` : "종일"}</span>
+                            </div>
+                          </div>
+                          <TaskBadge type={t.type} />
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-full">
+                    {/* Today's Tasks */}
+                    <div className="bg-surface-variant/20 rounded-xl p-3 border border-border/50 flex flex-col min-h-[140px]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-xs text-primary flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          오늘의 할 일 ({tasks.filter((t) => isSameDay(parseISO(t.deadline), new Date())).length}건)
+                        </span>
+                      </div>
+                      <div className="flex-1 space-y-1.5 overflow-y-auto cell-scroll">
+                        {tasks.filter((t) => isSameDay(parseISO(t.deadline), new Date())).length === 0 ? (
+                          <div className="h-full flex items-center justify-center text-[11px] text-on-surface-variant/60 py-4">
+                            오늘 예정된 일정이 없습니다.
+                          </div>
+                        ) : (
+                          tasks
+                            .filter((t) => isSameDay(parseISO(t.deadline), new Date()))
+                            .map((t) => (
+                              <div
+                                key={t.id}
+                                onClick={() => onEditTask(t)}
+                                className="p-2 rounded-lg bg-surface hover:bg-surface-variant border border-border/50 text-xs cursor-pointer transition-colors flex items-center justify-between gap-2"
+                              >
+                                <span className={`truncate font-medium ${t.status === "DONE" ? "line-through opacity-50" : ""}`}>
+                                  {t.title}
+                                </span>
+                                <span className="text-[10px] text-on-surface-variant font-bold flex-shrink-0">
+                                  {format(parseISO(t.deadline), "a h:mm", { locale: ko })}
+                                </span>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Upcoming Deadlines */}
+                    <div className="bg-surface-variant/20 rounded-xl p-3 border border-border/50 flex flex-col min-h-[140px]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-xs text-tertiary flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          다가오는 마감 업무
+                        </span>
+                      </div>
+                      <div className="flex-1 space-y-1.5 overflow-y-auto cell-scroll">
+                        {tasks
+                          .filter((t) => {
+                            const d = parseISO(t.deadline);
+                            const now = new Date();
+                            return t.status !== "DONE" && isAfter(d, now) && countBusinessDaysBetween(now, d, tasks) <= 3;
+                          })
+                          .slice(0, 6)
+                          .map((t) => (
+                            <div
+                              key={t.id}
+                              onClick={() => onEditTask(t)}
+                              className="p-2 rounded-lg bg-surface hover:bg-surface-variant border border-border/50 text-xs cursor-pointer transition-colors flex items-center justify-between gap-2"
+                            >
+                              <span className="truncate font-medium">{t.title}</span>
+                              <span className="text-[10px] text-tertiary font-bold px-1.5 py-0.5 bg-tertiary/10 rounded-full flex-shrink-0">
+                                {format(parseISO(t.deadline), "MM/dd (E)", { locale: ko })}
+                              </span>
+                            </div>
+                          ))}
+                        {tasks.filter((t) => {
+                          const d = parseISO(t.deadline);
+                          const now = new Date();
+                          return t.status !== "DONE" && isAfter(d, now) && countBusinessDaysBetween(now, d, tasks) <= 3;
+                        }).length === 0 && (
+                          <div className="h-full flex items-center justify-center text-[11px] text-on-surface-variant/60 py-4">
+                            3영업일 내 마감 예정 일정이 없습니다.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
           /* List View / Timeline Mode for Z Fold 7 Cover Screen */
           <div className="flex-1 flex flex-col overflow-y-auto px-1 space-y-3 pb-36 h-auto cell-scroll">
             {daysToShow.map((day) => {
@@ -4668,7 +4962,8 @@ function FullCalendar({
         )}
       </div>
 
-      {/* Option A: Slide-over Drawer with Backdrop */}
+      {/* Option A: Slide-over Drawer with Backdrop (Only in horizontal desktop mode) */}
+      {!isPortrait && (
         <AnimatePresence>
           {selectedDate && (
             <>
@@ -4777,6 +5072,7 @@ function FullCalendar({
             </>
           )}
         </AnimatePresence>
+      )}
     </div>
   );
 }
