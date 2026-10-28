@@ -448,6 +448,8 @@ export default function App() {
 
   const isMobileLayout = viewMode === "mobile";
   const isPortraitLayout = viewMode === "portrait";
+  const showSidebar = viewMode === "desktop";
+  const showBottomBar = isMobileLayout || isPortraitLayout;
 
   // Save Status Toast & Progress Bar States
   const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SUCCESS" | "ERROR">("IDLE");
@@ -1251,8 +1253,8 @@ export default function App() {
 
   return (
     <div className="flex h-[100dvh] bg-background text-on-background overflow-hidden font-body selection:bg-primary-container selection:text-on-primary-container">
-      {/* Left Navigation (Desktop view) */}
-      {!isMobileLayout && (
+      {/* Left Navigation (Desktop view only; portrait & mobile use bottom bar) */}
+      {showSidebar && (
         <nav className={`relative flex-shrink-0 bg-surface border-r border-border flex flex-col transition-[width] duration-200 ease-in-out will-change-[width] ${isSidebarOpen ? "w-64" : "w-16"}`}>
           {/* Toggle Button in middle-right edge of sidebar */}
           <button
@@ -1348,95 +1350,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Theme & 3-Mode View Controls */}
-            {isSidebarOpen ? (
-              <div className="space-y-1.5">
-                {/* Dark Mode Button */}
-                <button
-                  onClick={toggleTheme}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-surface-variant/60 hover:bg-surface-variant text-on-surface-variant hover:text-on-surface border border-border/60 transition-all text-xs font-bold shadow-xs active:scale-[0.98]"
-                  title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
-                >
-                  {isDarkMode ? (
-                    <>
-                      <Sun className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                      <span className="truncate">라이트모드</span>
-                    </>
-                  ) : (
-                    <>
-                      <Moon className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                      <span className="truncate">다크모드</span>
-                    </>
-                  )}
-                </button>
-
-                {/* 3-Mode View Switcher (가로 / 세로 / 모바일) */}
-                <div className="bg-surface-variant/40 p-1 rounded-xl border border-border/60 flex items-center gap-1 shadow-2xs">
-                  <button
-                    onClick={() => changeViewMode("desktop")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
-                      viewMode === "desktop"
-                        ? "bg-primary text-on-primary shadow-xs"
-                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
-                    }`}
-                    title="PC 가로 화면 (와이드 모니터)"
-                  >
-                    <Monitor className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate text-[11px]">가로</span>
-                  </button>
-
-                  <button
-                    onClick={() => changeViewMode("portrait")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
-                      viewMode === "portrait"
-                        ? "bg-primary text-on-primary shadow-xs"
-                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
-                    }`}
-                    title="PC 세로 화면 (피벗 모니터 듀얼 관제)"
-                  >
-                    <SplitSquareVertical className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate text-[11px]">세로</span>
-                  </button>
-
-                  <button
-                    onClick={() => changeViewMode("mobile")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-xs font-bold transition-all ${
-                      (viewMode as string) === "mobile"
-                        ? "bg-primary text-on-primary shadow-xs"
-                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/70"
-                    }`}
-                    title="모바일 화면 (스마트폰 / Z 폴드 커버)"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate text-[11px]">모바일</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-1.5">
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 rounded-xl hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
-                  title={isDarkMode ? "라이트 모드로 변경" : "다크 모드로 변경"}
-                >
-                  {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
-                </button>
-                <button
-                  onClick={() => {
-                    if ((viewMode as string) === "desktop") changeViewMode("portrait");
-                    else if ((viewMode as string) === "portrait") changeViewMode("mobile");
-                    else changeViewMode("desktop");
-                  }}
-                  className="p-2 rounded-xl bg-surface-variant/80 hover:bg-surface-variant text-primary transition-colors flex items-center justify-center border border-border/50"
-                  title={`화면 모드 전환 (현재: ${viewMode === "desktop" ? "가로" : viewMode === "portrait" ? "세로(피벗)" : "모바일"}, 클릭 시 순환)`}
-                >
-                  {(viewMode as string) === "desktop" && <Monitor className="w-4 h-4 text-primary" />}
-                  {(viewMode as string) === "portrait" && <SplitSquareVertical className="w-4 h-4 text-indigo-500" />}
-                  {(viewMode as string) === "mobile" && <Smartphone className="w-4 h-4 text-emerald-500" />}
-                </button>
-              </div>
-            )}
-
+            {/* New Task Button */}
             <button
               onClick={() => openNewTaskModal()}
               title={!isSidebarOpen ? "일정 추가" : undefined}
@@ -1453,10 +1367,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full lg:h-[100dvh] overflow-hidden relative">
-        {/* Header (Shows on mobile, portrait pivot mode, or when toggled) */}
-        <header className={`h-14 sm:h-16 px-3 sm:px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-20 ${
-          isMobileLayout || isPortraitLayout ? "flex" : "hidden md:flex md:hidden"
-        }`}>
+        {/* Header (Always visible so controls in top-right are accessible across desktop, portrait, and mobile) */}
+        <header className="h-14 sm:h-16 px-3 sm:px-6 border-b border-border bg-surface flex items-center justify-between flex-shrink-0 z-20">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary flex-shrink-0">
               <ClipboardList className="w-5 h-5" />
@@ -1537,7 +1449,9 @@ export default function App() {
         </header>
 
         {/* Dynamic Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-6 cell-scroll">
+        <main className={`flex-1 overflow-x-hidden overflow-y-auto bg-background p-2 sm:p-6 ${
+          showBottomBar ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))]" : "pb-6"
+        } cell-scroll`}>
           <div className="max-w-7xl mx-auto h-full lg:h-full flex flex-col">
             <AnimatePresence mode="wait">
               {activeTab === "dashboard" && (
@@ -2396,48 +2310,88 @@ export default function App() {
         </main>
       </div>
 
-      {/* Bottom Mobile Tab Bar (Active in mobile layout or mobile screen) */}
-      {isMobileLayout && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-md border-t border-border flex items-center justify-around px-2 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] z-50 shadow-lg">
+      {/* Floating Action Button (FAB) for adding tasks in mobile / portrait mode */}
+      {showBottomBar && (
+        <button
+          onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
+          className="fixed bottom-[4.25rem] sm:bottom-[4.75rem] right-4 sm:right-6 z-40 w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all ring-4 ring-surface"
+          title="새 일정 등록"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Bottom Navigation Bar (Active in mobile layout and portrait layout - matching all 7 desktop menu tabs) */}
+      {showBottomBar && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-md border-t border-border flex items-center justify-between px-1 sm:px-3 py-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] z-40 shadow-lg">
           <button
             onClick={() => setActiveTab("calendar")}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "calendar" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "calendar" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
           >
             <CalendarIcon className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">캘린더</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("tasks")}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "tasks" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
-          >
-            <ClipboardList className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">작업현황</span>
-          </button>
-
-          {/* Quick Add Floating Action Button in Middle */}
-          <button
-            onClick={() => openNewTaskModal(selectedCalendarDate || new Date())}
-            className="w-12 h-12 flex-shrink-0 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all transform -translate-y-4 ring-4 ring-background"
-            title="새 일정 등록"
-          >
-            <Plus className="w-6 h-6" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">캘린더</span>
           </button>
 
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "dashboard" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "dashboard" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
           >
             <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">대시보드</span>
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">대시보드</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("tasks")}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "tasks" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">작업현황</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("workflows")}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "workflows" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
+          >
+            <GitMerge className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">연쇄업무</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("periodic")}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "periodic" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
+          >
+            <History className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">주기별업무</span>
           </button>
 
           <button
             onClick={() => setActiveTab("notes")}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${activeTab === "notes" ? "text-primary font-bold" : "text-on-surface-variant opacity-70"}`}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "notes" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
           >
             <FileText className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">메모장</span>
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">메모장</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              activeTab === "settings" ? "text-primary font-bold scale-105" : "text-on-surface-variant opacity-70 hover:opacity-100"
+            }`}
+          >
+            <SettingsIcon className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] mt-0.5 truncate tracking-tighter">설정</span>
           </button>
         </nav>
       )}
