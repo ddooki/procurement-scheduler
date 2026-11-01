@@ -1377,12 +1377,6 @@ export default function App() {
             <span className="font-headline font-bold text-sm sm:text-base text-primary truncate">
               외주구매팀 업무관리표
             </span>
-            {isPortraitLayout && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                <SplitSquareVertical className="w-3 h-3" />
-                세로 피벗 관제
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
@@ -1655,7 +1649,11 @@ export default function App() {
                   className="h-full flex flex-col pt-2"
                 >
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 sm:overflow-hidden pb-16 sm:pb-0">
+                  <div className={`${
+                    isPortraitLayout
+                      ? "flex flex-col gap-3 flex-1 overflow-hidden pb-16 sm:pb-0"
+                      : "grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 sm:overflow-hidden pb-16 sm:pb-0"
+                  }`}>
                     <TaskColumn
                       title="해야 할 일"
                       tasks={filterTasksForBoard(tasks).filter((t) => getTaskStatus(t) === "TODO")}
@@ -1665,6 +1663,7 @@ export default function App() {
                       onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="TODO"
                       accent="bg-border"
+                      isPortrait={isPortraitLayout}
                     />
                     <TaskColumn
                       title="진행 중"
@@ -1675,6 +1674,7 @@ export default function App() {
                       onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="IN_PROGRESS"
                       accent="bg-tertiary"
+                      isPortrait={isPortraitLayout}
                     />
                     <TaskColumn
                       title="완료"
@@ -1689,6 +1689,7 @@ export default function App() {
                       onContextMenu={(e, task) => setContextMenu({ x: e.clientX, y: e.clientY, task })}
                       status="DONE"
                       accent="bg-primary"
+                      isPortrait={isPortraitLayout}
                     />
                   </div>
                 </motion.div>
@@ -3479,6 +3480,7 @@ function TaskColumn({
   onContextMenu,
   status,
   accent,
+  isPortrait = false,
 }: {
   title: string;
   tasks: Task[];
@@ -3488,7 +3490,156 @@ function TaskColumn({
   onContextMenu?: (e: React.MouseEvent, t: Task) => void;
   status: TaskStatus;
   accent: string;
+  isPortrait?: boolean;
 }) {
+  if (isPortrait) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col bg-surface-variant/25 dark:bg-surface-variant/15 rounded-xl p-3 border border-border/60 overflow-hidden shadow-2xs">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2 px-1 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className={`w-2.5 h-2.5 rounded-full ${accent}`} />
+            <h3 className="font-headline font-bold text-sm text-on-surface">{title}</h3>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-surface border border-border/80 text-on-surface-variant shadow-2xs">
+              {tasks.length}건
+            </span>
+          </div>
+          <span className="text-[10px] text-on-surface-variant/70 font-medium hidden sm:inline">
+            {status === "TODO" && "처리 대기 중인 업무 목록"}
+            {status === "IN_PROGRESS" && "현재 진행 중인 업무 목록"}
+            {status === "DONE" && "최근 완료된 업무 목록 (2영업일 이내)"}
+          </span>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto cell-scroll pr-1">
+          {tasks.length === 0 ? (
+            <div className="h-full min-h-[64px] flex items-center justify-center border border-dashed border-border/70 rounded-xl text-on-surface-variant/60 text-xs font-medium">
+              {status === "TODO" && "해야 할 일 일정이 없습니다."}
+              {status === "IN_PROGRESS" && "현재 진행 중인 일정이 없습니다."}
+              {status === "DONE" && "최근 완료된 일정이 없습니다."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2">
+              {tasks.map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => onEditTask(task)}
+                  onContextMenu={(e) => {
+                    if (onContextMenu) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onContextMenu(e, task);
+                    }
+                  }}
+                  className="bg-surface hover:bg-surface-variant/60 p-2.5 rounded-xl border border-border/70 hover:border-primary/50 cursor-pointer group transition-all shadow-xs flex flex-col justify-between gap-1.5"
+                >
+                  {/* Top: Badge + Action Button */}
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <TaskBadge type={task.type} />
+                      {task.recurrence && task.recurrence !== "NONE" && (
+                        <Repeat className="w-3 h-3 text-tertiary flex-shrink-0" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {status === "TODO" && (
+                        <button
+                          onClick={() => onUpdateStatus(task.id, "DONE")}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors"
+                          title="완료 처리"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>완료</span>
+                        </button>
+                      )}
+                      {status === "IN_PROGRESS" && (
+                        <button
+                          onClick={() => onUpdateStatus(task.id, "DONE")}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors"
+                          title="완료 처리"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>완료</span>
+                        </button>
+                      )}
+                      {status === "DONE" && (
+                        <>
+                          {getTaskTimePeriod(task) === "BEFORE" && (
+                            <button
+                              onClick={() => onUpdateStatus(task.id, "TODO")}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-variant hover:bg-border text-on-surface-variant text-[10px] font-medium transition-colors"
+                              title="해야 할 일로 복원"
+                            >
+                              <RefreshCcw className="w-3 h-3" />
+                              <span>복원</span>
+                            </button>
+                          )}
+                          {getTaskTimePeriod(task) === "DURING" && (
+                            <button
+                              onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-tertiary-container/30 hover:bg-tertiary-container/50 text-tertiary text-[10px] font-medium transition-colors"
+                              title="진행 중으로 복원"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>복원</span>
+                            </button>
+                          )}
+                          {getTaskTimePeriod(task) === "AFTER" && (
+                            <button
+                              onClick={() => onRescheduleTask?.(task)}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-error-container/30 hover:bg-error-container/50 text-error text-[10px] font-medium transition-colors"
+                              title="진행 중으로 복원 및 일정 변경"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>일정변경</span>
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Middle: Title & Description */}
+                  <div className="min-w-0">
+                    <h4 className={`font-bold text-xs sm:text-sm truncate ${task.status === "DONE" ? "line-through text-on-surface-variant opacity-60" : "text-on-surface"}`}>
+                      {task.title}
+                    </h4>
+                    {task.description && (
+                      <p className="text-[10px] text-on-surface-variant line-clamp-1 mt-0.5 opacity-80">
+                        {task.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom: Date info */}
+                  <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-medium pt-1 border-t border-border/40">
+                    <span className="flex items-center gap-1 bg-surface-variant/60 dark:bg-surface-variant/40 px-1.5 py-0.5 rounded text-[10px]">
+                      <CalendarIcon className="w-3 h-3 text-primary flex-shrink-0" />
+                      {task.startDate && task.endDate && !isSameDay(safeDate(task.startDate), safeDate(task.endDate)) ? (
+                        <span>
+                          {safeFormat(task.startDate, "MM/dd")} ~ {safeFormat(task.endDate, "MM/dd")}
+                        </span>
+                      ) : (
+                        <span>{safeFormat(task.deadline, "MM/dd HH:mm")}</span>
+                      )}
+                    </span>
+                    {task.chainName && (
+                      <span className="text-[10px] text-tertiary font-bold truncate max-w-[90px]">
+                        {task.chainName}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col bg-surface-variant/30 rounded-2xl p-4 h-full min-h-[280px] sm:min-h-0 overflow-hidden border border-border/50">
       <div className="flex items-center gap-2 mb-4 px-2">
