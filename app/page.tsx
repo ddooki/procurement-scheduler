@@ -40,6 +40,7 @@ import {
   Smartphone,
   Monitor,
   SplitSquareVertical,
+  Info,
 } from "lucide-react";
 import {
   format,
@@ -1595,7 +1596,22 @@ export default function App() {
                       <div className="bg-surface rounded-2xl p-4 sm:p-6 border border-border shadow-sm flex-1 flex flex-col min-h-[220px] lg:min-h-0 lg:overflow-hidden">
                         <h3 className="font-headline text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 text-tertiary">
                           <AlertTriangle className="w-5 h-5" />
-                          다가오는 마감일
+                          <span>다가오는 마감일</span>
+                          <CloudInfoTooltip
+                            title="마감일 표시 기준 안내"
+                            description={
+                              <>
+                                내일부터 마감 예정인 미완료 업무가 마감일 순으로 표시됩니다.
+                                <br />
+                                <span className="text-[10px] opacity-75 mt-1 block">
+                                  ※ 반복 업무는 일정 과밀 방지를 위해 가장 가까운 1개 회차만 대표 집계됩니다.
+                                </span>
+                              </>
+                            }
+                            position="bottom"
+                            align="left"
+                            iconSize="w-4 h-4"
+                          />
                         </h3>
                         {upcomingDeadlines.length === 0 ? (
                           <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-on-surface-variant font-medium border-2 border-dashed border-border rounded-xl min-h-[120px]">
@@ -3305,6 +3321,136 @@ function MobileNavItem({
   );
 }
 
+function CloudInfoTooltip({
+  title,
+  description,
+  position = "bottom",
+  align = "left",
+  iconSize = "w-3.5 h-3.5",
+}: {
+  title?: string;
+  description: React.ReactNode;
+  position?: "top" | "bottom";
+  align?: "left" | "right" | "center";
+  iconSize?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [xOffset, setXOffset] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [isOpen]);
+
+  // Adjust horizontal offset if overflowing window edge
+  const checkBounds = () => {
+    if (tooltipRef.current) {
+      const rect = tooltipRef.current.getBoundingClientRect();
+      const margin = 16;
+      if (rect.right > window.innerWidth - margin) {
+        setXOffset(rect.right - (window.innerWidth - margin));
+      } else if (rect.left < margin) {
+        setXOffset(-(margin - rect.left));
+      } else {
+        setXOffset(0);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      checkBounds();
+    }
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-flex items-center text-left group"
+      onMouseEnter={() => {
+        setIsOpen(true);
+        setTimeout(checkBounds, 10);
+      }}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label="안내 정보 확인"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+          setTimeout(checkBounds, 10);
+        }}
+        className="p-1 rounded-full text-on-surface-variant/60 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer focus:outline-none flex items-center justify-center"
+      >
+        <Info className={iconSize} />
+      </button>
+
+      {/* Cloud Bubble Box */}
+      <div
+        ref={tooltipRef}
+        role="tooltip"
+        style={{
+          transform: xOffset !== 0 ? `translateX(-${xOffset}px)` : undefined,
+        }}
+        className={`absolute z-[999] transition-all duration-200 pointer-events-none group-hover:pointer-events-auto ${
+          isOpen
+            ? "opacity-100 visible pointer-events-auto scale-100"
+            : "opacity-0 invisible scale-95 group-hover:opacity-100 group-hover:visible group-hover:scale-100"
+        } ${
+          position === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+        } ${
+          align === "left"
+            ? "left-0"
+            : align === "right"
+            ? "right-0"
+            : "left-1/2 -translate-x-1/2"
+        } w-64 sm:w-72 p-3 rounded-2xl bg-surface dark:bg-[#1e201e] border border-border shadow-[0_12px_32px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.6)] text-on-surface`}
+      >
+        {/* Cloud tail / arrow */}
+        <div
+          style={{
+            transform: xOffset !== 0 ? `translateX(${xOffset}px) rotate(45deg)` : "rotate(45deg)",
+          }}
+          className={`absolute w-2.5 h-2.5 bg-surface dark:bg-[#1e201e] border-border ${
+            position === "bottom"
+              ? "-top-1.5 border-t border-l"
+              : "-bottom-1.5 border-b border-r"
+          } ${
+            align === "left"
+              ? "left-3"
+              : align === "right"
+              ? "right-3"
+              : "left-1/2 -translate-x-1/2"
+          }`}
+        />
+
+        {/* Content */}
+        <div className="relative z-10 text-[11px] leading-relaxed">
+          {title && (
+            <div className="font-bold text-xs text-primary mb-1.5 flex items-center gap-1.5 border-b border-border/40 pb-1">
+              <span className="text-sm">💬</span>
+              <span>{title}</span>
+            </div>
+          )}
+          <div className="text-on-surface-variant font-medium">
+            {description}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TaskBadge({ type }: { type: TaskType }) {
   const config = {
     MEETING: { label: "미팅", classes: "bg-primary-container text-primary font-bold" },
@@ -4676,9 +4822,12 @@ function FullCalendar({
                       <h4 className="font-headline font-bold text-xs sm:text-sm text-on-surface truncate">
                         외주구매팀 종합 관제 (오늘의 할 일 & 마감 임박)
                       </h4>
-                      <span className="hidden sm:inline text-[10px] text-on-surface-variant">
-                        · 달력 날짜를 클릭하면 해당 일자의 상세 일정이 표시됩니다
-                      </span>
+                      <CloudInfoTooltip
+                        title="달력 상세 일정 안내"
+                        description="상단 달력에서 원하는 일자를 클릭하시면, 해당 일자에 등록된 상세 일정 목록으로 관제 화면이 전환됩니다."
+                        position="bottom"
+                        align="left"
+                      />
                     </>
                   )}
                 </div>
@@ -4787,7 +4936,21 @@ function FullCalendar({
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-xs text-tertiary flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5" />
-                          다가오는 마감 업무
+                          <span>다가오는 마감 업무</span>
+                          <CloudInfoTooltip
+                            title="마감 업무 표시 기준 안내"
+                            description={
+                              <>
+                                오늘 이후 <strong className="text-tertiary font-bold underline decoration-tertiary/40 underline-offset-2">영업일 기준 3일 이내</strong> 마감 예정인 미완료 업무가 표시됩니다.
+                                <br />
+                                <span className="text-[10px] opacity-75 mt-1 block">
+                                  ※ 주말(토/일) 및 법정 공휴일, 지정연차/휴가는 영업일 산정에서 제외됩니다.
+                                </span>
+                              </>
+                            }
+                            position="bottom"
+                            align="left"
+                          />
                         </span>
                       </div>
                       <div className="flex-1 space-y-1.5 overflow-y-auto cell-scroll">
